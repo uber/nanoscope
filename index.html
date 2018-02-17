@@ -419,6 +419,8 @@
                 var translation = vec2.fromValues(dx / matrix[0], dy);
                 mat3.translate(out, matrix, translation);
                 matrix = out;
+                // Enforce top bounds: no reason we should allow the user to scroll well beyond the top of the screen.
+                matrix[7] = Math.min(matrix[7], TOP_OF_SCREEN);
             }
 
             scale(scale, x, y) {
@@ -464,6 +466,7 @@
             }
         }
 
+        let TOP_OF_SCREEN = 10;
         let canvas = document.getElementById("canvas");
         let fileElement = document.getElementById('file');
 
@@ -547,7 +550,12 @@
             onTraceBytes(bytes, true);
         }
 
+        function initializeViewPort() {
+            matrix[7] = TOP_OF_SCREEN;
+        }
+
         loadInlinedData();
+        initializeViewPort();
 
         document.getElementById('file').addEventListener('change', event => {
             let file = event.target.files[0];
