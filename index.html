@@ -458,10 +458,10 @@
                     this.scroll(-SCROLL_JUMP, 0);
                 } else if (event.keyCode == 87) { // w
                     var boundingRect = canvas.getBoundingClientRect();
-                    this.scale(-SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
+                    this.scale(SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
                 } else if (event.keyCode == 83) { // s
                     var boundingRect = canvas.getBoundingClientRect();
-                    this.scale(SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
+                    this.scale(-SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
                 }
             }
         }
