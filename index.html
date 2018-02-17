@@ -1,0 +1,553 @@
+<html>
+
+<body>
+    <script id="data" type="application/octet-stream"></script>
+    <div class="main">
+        <div class="header">
+            <div id="progress" class="progress"></div>
+            <input type="file" id="file" name="file">
+        </div>
+        <div class="content">
+            <canvas class="canvas" id="canvas" onresize="resizeCanvas()"></canvas>
+        </div>
+    </div>
+    <style type="text/css">
+        html, body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        .main {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: min-content 1fr;
+        }
+        .header {
+            grid-row: 1;
+            grid-column: 1;
+        }
+        .content {
+            grid-row: 2;
+            grid-column: 1;
+        }
+        .canvas {
+            height: 100vh;
+        }
+        .progress {
+            height: 5px;
+            width: 100%;
+            transform: scale(0, 1);
+            transform-origin: left;
+            /* Transitions are janky for some reason */
+            /*transition: 100ms linear;*/
+            /*transition-property: transform;*/
+            background-color: green;
+        }
+        .notransition {
+            transition: none;
+        }
+    </style>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js">
+    </script>
+    <script type="text/javascript">
+        class EventData {
+
+            constructor(name, left, top, width, height) {
+                this.name = name;
+                this.left = left;
+                this.top = top;
+                this.width = width;
+                this.height = height;
+                let hashValue = this.hash(name);
+                let h = hashValue % 360;
+                this.color = `hsl(${h}, 50%, 40%)`;
+                this.textWidth = -1;
+                this.textCanvas = null;
+            }
+
+            render(context, scale) {
+                this.renderBackground(context, scale);
+                this.renderName(context, scale);
+            }
+
+            renderBackground(context, scale) {
+                context.fillStyle = this.color;
+                context.fillRect(this.left, this.top, this.width, this.height);
+            }
+
+            renderName(context, scale) {
+                let scaledWidth = scale * this.width;
+                if (scaledWidth < 100) {
+                    return;
+                }
+
+                if (this.textWidth == -1) {
+                    this.textWidth = context.measureText(this.name).width;
+                }
+
+                if (this.textWidth > scaledWidth) {
+                    return;
+                }
+
+                if (this.textCanvas == null) {
+                    this.rasterizeText(context);
+                }
+
+                let modelAnchor = vec2.fromValues(this.left, this.top);
+                let screenAnchor = vec2.transformMat3(vec2.create(), modelAnchor, context.matrix);
+                context.resetTransform();
+                context.drawImage(this.textCanvas, screenAnchor[0], screenAnchor[1]);
+                context.setTransform(matrix[0], matrix[1], matrix[3], matrix[4], matrix[6], matrix[7]);
+            }
+
+            rasterizeText(context) {
+                this.textCanvas = document.createElement('canvas');
+                this.textCanvas.width = this.textWidth * PIXEL_RATIO;
+                this.textCanvas.height = 40;
+                var textContext = this.textCanvas.getContext('2d');
+                textContext.fillStyle = "white";
+                textContext.font = context.font;
+                textContext.fillText(this.name, 0, this.textCanvas.height);
+                // textContext.fillRect(0, 0, 40, 40);
+            }
+
+            hash(str) {
+              var hash = 5381,
+                  i    = str.length;
+
+              while(i) {
+                hash = (hash * 33) ^ str.charCodeAt(--i);
+              }
+
+              /* JavaScript does bitwise operations (like XOR, above) on 32-bit signed
+               * integers. Since we want the results to be always positive, convert the
+               * signed int to an unsigned by doing an unsigned bitshift. */
+              return hash >>> 0;
+            }
+        }
+
+        class RowData {
+
+            constructor(top, bottom) {
+                this.top = top;
+                this.bottom = bottom;
+                this.eventDatas = [];
+            }
+
+            render(context, scale, left, right) {
+                let leftIndex = this.binarySearch(this.eventDatas, eventData => eventData.left, item => item >= left);
+                let rightIndex = this.binarySearch(this.eventDatas, eventData => eventData.left + eventData.width, item => item >= right);
+
+                leftIndex = Math.max(leftIndex - 1, 0);
+                rightIndex = Math.min(rightIndex, this.eventDatas.length - 1);
+
+                for (let i = leftIndex; i <= rightIndex; i++) {
+                    this.eventDatas[i].render(context, scale);
+                }
+            }
+
+            addEvent(name, start, end) {
+                this.eventDatas.push(new EventData(name, start, this.top, end - start, this.bottom - this.top));
+            }
+
+            binarySearch(array, map, pred) {
+                let lo = -1, hi = array.length;
+                while (1 + lo !== hi) {
+                    const mi = lo + ((hi - lo) >> 1);
+                    if (pred(map(array[mi]))) {
+                        hi = mi;
+                    } else {
+                        lo = mi;
+                    }
+                }
+                return hi;
+            }
+        }
+
+        class ScaleData {
+
+            constructor(minScale, minCellWidth) {
+                this.minScale = minScale;
+                this.minCellWidth = minCellWidth;
+                this.rowDatas = [];
+            }
+
+            render(context, scale, left, right) {
+                if (scale < this.minScale) {
+                    return false;
+                }
+                for (let rowData of this.rowDatas) {
+                    rowData.render(context, scale, left, right);
+                }
+                return true;
+            }
+
+            addEvent(name, start, end, stackDepth) {
+                if (end - start < this.minCellWidth) {
+                    return;
+                }
+                while (this.rowDatas.length < stackDepth) {
+                    let rowHeight = 40;
+                    let rowTop = this.rowDatas.length * rowHeight;
+                    let rowBottom = rowTop + rowHeight;
+                    this.rowDatas.push(new RowData(rowTop, rowBottom));
+                }
+
+                this.rowDatas[stackDepth - 1].addEvent(name, start, end);
+            }
+        }
+
+        class TraceData {
+
+            constructor() {
+                let scaleCount = 10;
+                let minCellPixelWidth = 2;
+                let factor = 10;
+                this.scaleDatas = [];
+
+                let minScale = 1;
+                for (let i = 0; i < scaleCount; i++) {
+                    let maxScale = minScale * factor;
+                    let minCellWidth = minCellPixelWidth / maxScale;
+
+                    this.scaleDatas.push(new ScaleData(minScale, minCellWidth));
+                    minScale /= factor;
+                }
+            }
+
+            addEvent(name, start, end, stackDepth) {
+                for (let scaleData of this.scaleDatas) {
+                    scaleData.addEvent(name, start, end, stackDepth);
+                }
+            }
+
+            render(context, scale, left, right) {
+                for (let scaleData of this.scaleDatas) {
+                    if (scaleData.render(context, scale, left, right)) {
+                        return;
+                    }
+                }
+            }
+        }
+
+        class Renderer {
+
+            constructor(canvas) {
+                this.canvas = canvas;
+                this._ = canvas.getContext("2d");
+            }
+
+            setTraceData(traceData) {
+                this.traceData = traceData;
+                this.draw();
+            }
+
+            draw() {
+                if (!this.traceData) {
+                    return;
+                }
+                var width = canvas.width;
+                var height = canvas.height;
+                this._.fillStyle = "black";
+                this._.resetTransform();
+                this._.fillRect(0, 0, width, height);
+
+                let screenLeft = vec2.fromValues(0, 0);
+                let screenRight = vec2.fromValues(width, 0);
+                let inverse = mat3.invert(mat3.create(), matrix);
+                let modelLeft = vec2.transformMat3(vec2.create(), screenLeft, inverse);
+                let modelRight = vec2.transformMat3(vec2.create(), screenRight, inverse);
+                let left = modelLeft[0];
+                let right  = modelRight[0];
+
+                this._.font = '24px sans-serif';
+                this._.setTransform(matrix[0], matrix[1], matrix[3], matrix[4], matrix[6], matrix[7]);
+
+                this._.matrix = matrix;
+                this._.inverse = inverse;
+                this.traceData.render(this._, matrix[0], left, right);
+            }
+        }
+
+        let charZero = '0'.charCodeAt(0);
+        let charColon = ':'.charCodeAt(0);
+        let charNewline = '\n'.charCodeAt(0);
+        let charPeriod = '.'.charCodeAt(0);
+        let charLeftParen = '('.charCodeAt(0);
+
+        class Event {
+
+            constructor(name, shortName, start) {
+                this.name = name;
+                this.shortName = shortName;
+                this.start = start;
+                this.end = -1;
+            }
+        }
+
+        class TraceDataLoader {
+
+            constructor(bytes) {
+                this.traceData = new TraceData();
+                this.onProgress = () => {};
+                this.onDone = () => {};
+                this.callStack = [];
+                this.firstTimestamp = -1;
+                this.timestamp = -1;
+                this.done = false;
+                this.totalBytes = bytes.length;
+                this.bytesRead = 0;
+
+                let it = bytes.values();
+                this.next = () => {
+                    this.bytesRead++;
+                    return it.next();
+                };
+            }
+
+            loadTraceData() {
+                this.loop();
+            }
+
+            loop() {
+                this.loadWithDeadline(this.createDeadline());
+                if (this.done) {
+                    this.onProgress(this.totalBytes);
+                    this.onDone(this.traceData);
+                } else {
+                    this.onProgress(this.bytesRead);
+                    requestAnimationFrame(this.loop.bind(this));
+                }
+            }
+
+            createDeadline() {
+                let timeout = 500;
+                let deadline = Date.now() + timeout;
+                return {
+                    timeRemaining: () => deadline - Date.now()
+                };
+            };
+
+            loadWithDeadline(deadline = { timeRemaining: () => 1 }) {
+                while (!this.done && deadline.timeRemaining() > 0) {
+                    this.loadLine();
+                }
+                if (this.done) {
+                    while (this.callStack.length > 0) {
+                        this.pop();
+                    }
+                }
+            }
+
+            loadLine() {
+                let loadedTimestamp = this.loadTimestamp();
+                if (this.done) {
+                    return;
+                }
+                this.timestamp = loadedTimestamp;
+                let names = this.loadName();
+                let name = names[0];
+                let shortName = names[1];
+                if (this.firstTimestamp == -1) {
+                    this.firstTimestamp = this.timestamp;
+                }
+                this.timestamp -= this.firstTimestamp;
+                if (name == "POP") {
+                    if (this.callStack.length > 0) {
+                        this.pop();
+                    }
+                } else {
+                    this.callStack.push(new Event(name, shortName, this.timestamp));
+                }
+            }
+
+            pop() {
+                let event = this.callStack.pop();
+                event.end = this.timestamp;
+                this.traceData.addEvent(event.shortName, event.start, event.end, this.callStack.length + 1);
+            }
+
+            loadTimestamp() {
+                let next = this.next();
+                if (next.done) {
+                    this.done = true;
+                    return;
+                }
+
+                let timestamp = 0;
+                while (next.value != charColon) {
+                    timestamp *= 10;
+                    timestamp += next.value - charZero;
+                    next = this.next();
+                }
+                return timestamp;
+            }
+
+            loadName() {
+                let name = "";
+                let shortName = "";
+                let next = this.next();
+                let index = 0;
+                let periods = [];
+                while (!next.done && next.value != charNewline) {
+                    if (!shortName) {
+                        if (next.value == charPeriod) {
+                            if (periods.size < 2) {
+                                periods.push(index);
+                            } else {
+                                periods[0] = periods[1];
+                                periods[1] = index;
+                            }
+                        } else if (next.value == charLeftParen) {
+                            shortName = name.substring(periods[0] + 1, index)
+                        }
+                    }
+                    name += String.fromCharCode(next.value);
+                    next = this.next();
+                    index++;
+                }
+                return [name, shortName];
+            }
+        }
+
+        var X = 1;
+
+        class GestureHandler {
+
+            scroll(dx, dy) {
+                var out = mat3.create();
+                var translation = vec2.fromValues(dx / matrix[0], dy);
+                mat3.translate(out, matrix, translation);
+                matrix = out;
+            }
+
+            scale(scale, x, y) {
+                var K = 10;
+                var originalScreenPoint = vec2.fromValues(x, y);
+                var inverse = mat3.invert(mat3.create(), matrix);
+                var originalModelPoint = vec2.transformMat3(vec2.create(), originalScreenPoint, inverse);
+                scale = Math.sign(scale) * Math.min(K, Math.abs(scale)) / K + 1;
+                matrix = mat3.scale(mat3.create(), matrix, vec2.fromValues(scale, 1));
+                var newScreenPoint = vec2.transformMat3(vec2.create(), originalModelPoint, matrix);
+                var offsetX = originalScreenPoint[0] - newScreenPoint[0];
+                var offsetY = originalScreenPoint[1] - newScreenPoint[1];
+                matrix = mat3.translate(mat3.create(), matrix, vec2.fromValues(offsetX / matrix[0], offsetY));
+            }
+
+            onMouseWheel(event) {
+                if (event.ctrlKey) {
+                    var boundingRect = canvas.getBoundingClientRect();
+                    var x = event.clientX - boundingRect.left;
+                    var y = event.clientY - boundingRect.top;
+                    x *= PIXEL_RATIO;
+                    y *= PIXEL_RATIO;
+                    this.scale(-event.deltaY / 10, x, y);
+                } else {
+                    this.scroll(-event.deltaX, -event.deltaY);
+                }
+            }
+        }
+
+        let canvas = document.getElementById("canvas");
+        let fileElement = document.getElementById('file');
+
+        let matrix = mat3.create();
+        let gestureHandler = new GestureHandler();
+        let renderer = new Renderer(canvas);
+
+        var PIXEL_RATIO = (function () {
+            var ctx = canvas.getContext("2d"),
+                dpr = window.devicePixelRatio || 1,
+                bsr = ctx.webkitBackingStorePixelRatio ||
+                      ctx.mozBackingStorePixelRatio ||
+                      ctx.msBackingStorePixelRatio ||
+                      ctx.oBackingStorePixelRatio ||
+                      ctx.backingStorePixelRatio || 1;
+
+            return dpr / bsr;
+        })();
+
+        function resizeCanvas() {
+            canvas.width = canvas.getBoundingClientRect().width * PIXEL_RATIO;
+            canvas.height = canvas.getBoundingClientRect().height * PIXEL_RATIO;
+        }
+        resizeCanvas();
+
+        function loadTestData() {
+            let count = 0;
+            let width = canvas.width * 1000;
+            let traceData = new TraceData();
+            let colCount = 10;
+            for (let row = 1; row < 8; row++) {
+                let colWidth = width / colCount;
+                let padding = colWidth / 10;
+                for (let col = 0; col < colCount; col++) {
+                    let start = col * colWidth;
+                    let end = start + colWidth;
+                    count++;
+                    traceData.addEvent(start, end - padding, row);
+                }
+                colCount *= 10;
+            }
+            console.log(count);
+            renderer.setTraceData(traceData);
+        }
+        // loadTestData();
+
+        function onTraceBytes(bytes, inlined) {
+            let progressEl = document.getElementById('progress');
+            let traceData = new TraceData();
+            let loader = new TraceDataLoader(bytes);
+
+            if (!inlined) {
+                let dataEl = document.getElementById("data");
+                dataEl.innerHTML = new TextDecoder().decode(bytes);
+            }
+
+            progressEl.max = loader.totalBytes;
+            progressEl.classList.add("notransition");
+            progressEl.style.opacity = "1";
+            progressEl.style.transform = "scale(0)";
+            progressEl.classList.remove("notransition");
+
+            loader.onProgress = bytesRead => {
+                let scale = bytesRead / loader.totalBytes;
+                progressEl.style.transform = `scale(${scale}, 1)`;
+            }
+            loader.onDone = traceData => {
+                let end = Date.now();
+                console.log(end - start);
+                renderer.setTraceData(traceData)
+                progressEl.style.opacity = "0";
+            };
+
+            let start = Date.now();
+            loader.loadTraceData();
+        }
+
+        function loadInlinedData() {
+            let dataEl = document.getElementById("data");
+            let bytes = new TextEncoder().encode(dataEl.innerHTML);
+            onTraceBytes(bytes, true);
+        }
+
+        loadInlinedData();
+
+        document.getElementById('file').addEventListener('change', event => {
+            let file = event.target.files[0];
+            let fileReader = new FileReader();
+            fileReader.onload = e => {
+                let bytes = new Uint8Array(e.target.result);
+                onTraceBytes(bytes, false);
+            };
+            fileReader.readAsArrayBuffer(file);
+        }, false);
+        document.getElementById('canvas').addEventListener('mousewheel', event => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            gestureHandler.onMouseWheel(event)
+            renderer.draw();
+        });
+    </script>
+</body>
+</html>
