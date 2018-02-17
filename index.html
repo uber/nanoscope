@@ -60,7 +60,7 @@
                 this.height = height;
                 let hashValue = this.hash(name);
                 let h = hashValue % 360;
-                this.color = `hsl(${h}, 50%, 40%)`;
+                this.color = `hsl(${h}, 80%, 60%)`;
                 this.textWidth = -1;
                 this.textCanvas = null;
             }
@@ -446,6 +446,22 @@
                     this.scroll(-event.deltaX, -event.deltaY);
                 }
             }
+
+            onKeyPress(event) {
+                var SCROLL_JUMP = 200;
+                var SCALE_JUMP = 4;
+                if (event.keyCode == 65) { // a
+                    this.scroll(SCROLL_JUMP, 0);
+                } else if (event.keyCode == 68) { // d
+                    this.scroll(-SCROLL_JUMP, 0);
+                } else if (event.keyCode == 87) { // w
+                    var boundingRect = canvas.getBoundingClientRect();
+                    this.scale(-SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
+                } else if (event.keyCode == 83) { // s
+                    var boundingRect = canvas.getBoundingClientRect();
+                    this.scale(SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
+                }
+            }
         }
 
         let canvas = document.getElementById("canvas");
@@ -548,6 +564,12 @@
             gestureHandler.onMouseWheel(event)
             renderer.draw();
         });
+        document.addEventListener('keydown', event => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            gestureHandler.onKeyPress(event)
+            renderer.draw();
+        }, false);
     </script>
 </body>
 </html>
