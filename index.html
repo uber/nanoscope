@@ -1,5 +1,7 @@
 <html>
-
+<head>
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+</head>
 <body>
     <script id="data" type="application/octet-stream"></script>
     <div class="main">
@@ -57,6 +59,28 @@
                 this.AXIS_BACKGROUND_COLOR = '#303030';
                 this.AXIS_HEIGHT = PIXEL_RATIO * 30;
                 this.VIEW_PORT_COLOR = "#081016";
+                this.EVENT_BORDER_COLOR= '#2a555f';
+                this.EVENT_HEIGHT = 50;
+                this._COLOR_PALETTE = [
+                    // From one color gradient.
+                    '#4f68ab',
+                    '#4b66a6',
+                    '#415a94',
+                    '#374d80',
+                    '#30446f',
+                    '#28375e',
+                    '#202e4f',
+                    // From a second gradient
+                    '#4d7166',
+                    '#83b8ab',
+                    '#151918',
+                    '#1b2b26',
+                ];
+            }
+
+            colorFromColorPalette(hash) {
+                let h = hash % this._COLOR_PALETTE.length;
+                return this._COLOR_PALETTE[h];
             }
         }
 
@@ -69,8 +93,7 @@
                 this.width = width;
                 this.height = height;
                 let hashValue = this.hash(name);
-                let h = hashValue % 360;
-                this.color = `hsl(${h}, 70%, 60%)`;
+                this.color = theme.colorFromColorPalette(hashValue);
                 this.textWidth = -1;
                 this.textCanvas = null;
             }
@@ -83,6 +106,41 @@
             renderBackground(context, scale) {
                 context.fillStyle = this.color;
                 context.fillRect(this.left, this.top, this.width, this.height);
+
+                // Don't draw anything that will appear really small. Otherwise draw performance is terrible.
+                if (scale * this.width > 5) {
+                    // Below we draw three strokes instead of using a rectangle. This is necessary
+                    // since each line of the rectangle needs to be drawn unscaled. So we need to perform
+                    // scale operations on two of the lines. As for the forth line: we skip it. It is redundnat.
+                    context.strokeStyle = theme.EVENT_BORDER_COLOR;
+                    let right = this.left + this.width;
+
+                    // Top
+                    context.beginPath();
+                    context.moveTo(this.left, this.top);
+                    context.lineTo(right, this.top);
+                    context.stroke();
+
+                    // Left
+                    context.save()
+                    context.translate(this.left, 0);
+                    context.scale(1/scale, 1);
+                    context.moveTo(0, this.top);
+                    context.lineTo(0, this.top + this.height);
+                    context.stroke();
+                    context.restore()
+
+                    // right line
+                    context.save()
+                    context.translate(right, 0);
+                    context.scale(1/scale, 1);
+                    context.moveTo(0, this.top);
+                    context.lineTo(0, this.top + this.height);
+                    context.stroke();
+                    context.restore();
+
+                    context.closePath();
+                }
             }
 
             renderName(context, scale) {
@@ -114,11 +172,12 @@
             rasterizeText(context) {
                 this.textCanvas = document.createElement('canvas');
                 this.textCanvas.width = this.textWidth * PIXEL_RATIO;
-                this.textCanvas.height = 40;
+                this.textCanvas.height = theme.EVENT_HEIGHT;
                 var textContext = this.textCanvas.getContext('2d');
                 textContext.fillStyle = "white";
                 textContext.font = context.font;
-                textContext.fillText(this.name, 0, this.textCanvas.height);
+                textContext.textBaseline='middle';
+                textContext.fillText("   " + this.name, 0, this.textCanvas.height / 2);
             }
 
             hash(str) {
@@ -197,7 +256,7 @@
                     return;
                 }
                 while (this.rowDatas.length < stackDepth) {
-                    let rowHeight = 40;
+                    let rowHeight = theme.EVENT_HEIGHT;
                     let rowTop = this.rowDatas.length * rowHeight;
                     let rowBottom = rowTop + rowHeight;
                     this.rowDatas.push(new RowData(rowTop, rowBottom));
@@ -258,7 +317,11 @@
                 var height = canvas.height;
                 this._.fillStyle = theme.VIEW_PORT_COLOR;
                 this._.resetTransform();
-                this._.fillRect(0, 0, width, height);
+                this._.fillRect(0, 0, canvas.width, canvas.height);
+                //this._.fillRect(0, 0, width, height);
+
+                var background = new Image();
+                background.src = "http://www.samskirrow.com/background.png";
 
                 let screenLeft = vec2.fromValues(0, 0);
                 let screenRight = vec2.fromValues(width, 0);
@@ -268,7 +331,7 @@
                 let left = modelLeft[0];
                 let right  = modelRight[0];
 
-                this._.font = '24px sans-serif';
+                this._.font = '24px Roboto';
                 this._.setTransform(matrix[0], matrix[1], matrix[3], matrix[4], matrix[6], matrix[7]);
 
                 this._.matrix = matrix;
@@ -430,21 +493,18 @@
             }
 
             render(context, scale, left, right) {
-                let ctx = this._;
-                ctx.save();
+                context.save();
 
-                // Undo the y translation. We always want the y position to be fixed in screen space.
-                // This keeps the axis at the top of the screen.
-                ctx.translate(0, -matrix[7] / matrix[4])
+                // Undo the y translation. We always want the y position to be fixed in screen space. This keeps the axis at the top of the screen.
+                context.translate(0, -matrix[7] / matrix[4])
                 
-                this.renderAxisBackground(scale, left, right);
-                this.renderTickMarks(scale, left, right);
+                this.renderAxisBackground(context, scale, left, right);
+                this.renderTickMarks(context, scale, left, right);
 
-                ctx.restore();
+                context.restore();
             }
 
-            renderTickMarks(scale, left, right) {
-                let ctx = this._;
+            renderTickMarks(ctx, scale, left, right) {
 
                 // Goal of the below calculation: we want to have between 5 to 10 different markers on the screen a time.
                 // Allowing each division to decrease in size by a factor of 2 before resizing the division achieves about this.
@@ -464,12 +524,14 @@
                     ctx.moveTo(majorDivision * divisionSize, 0);
                     ctx.lineTo(majorDivision * divisionSize, theme.AXIS_HEIGHT);
                     ctx.stroke();
+                    ctx.closePath();
 
                     for (let minorDivision = 0; minorDivision < 5; minorDivision++) {
                         ctx.beginPath();
                         ctx.moveTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 0);
                         ctx.lineTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 1 / 3 * theme.AXIS_HEIGHT);
                         ctx.stroke();
+                        ctx.closePath();
                     }
 
                     ctx.fillStyle = theme.AXIS_LINE_COLOR;
@@ -482,21 +544,16 @@
                 }
             }
 
-            renderAxisBackground(scale, left, right) {
-                let ctx = this._;
+            renderAxisBackground(ctx, scale, left, right) {
                 ctx.fillStyle = theme.AXIS_BACKGROUND_COLOR;
                 ctx.fillRect(left, 0, right - left, theme.AXIS_HEIGHT);
                 ctx.strokeStyle = theme.AXIS_LINE_COLOR;
                 ctx.lineWidth = theme.AXIS_LINE_STROKE_WIDTH;
-                
-                // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
-                ctx.save();
-                ctx.resetTransform();
                 ctx.beginPath();
-                ctx.moveTo(0, theme.AXIS_HEIGHT);
-                ctx.lineTo(100000, theme.AXIS_HEIGHT);
+                // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
+                ctx.moveTo(-9999999999999, theme.AXIS_HEIGHT);
+                ctx.lineTo(9999999999999, theme.AXIS_HEIGHT);
                 ctx.stroke();
-                ctx.restore();
             }
 
             formatTime(time, divisionSize) {
