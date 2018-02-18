@@ -318,10 +318,6 @@
                 this._.fillStyle = theme.VIEW_PORT_COLOR;
                 this._.resetTransform();
                 this._.fillRect(0, 0, canvas.width, canvas.height);
-                //this._.fillRect(0, 0, width, height);
-
-                var background = new Image();
-                background.src = "http://www.samskirrow.com/background.png";
 
                 let screenLeft = vec2.fromValues(0, 0);
                 let screenRight = vec2.fromValues(width, 0);
@@ -542,6 +538,8 @@
                     ctx.fillText("  " + this.formatTime(majorDivision * divisionSize, divisionSize), 0, 0);
                     ctx.restore();
                 }
+
+                ctx.closePath();
             }
 
             renderAxisBackground(ctx, scale, left, right) {
@@ -549,11 +547,15 @@
                 ctx.fillRect(left, 0, right - left, theme.AXIS_HEIGHT);
                 ctx.strokeStyle = theme.AXIS_LINE_COLOR;
                 ctx.lineWidth = theme.AXIS_LINE_STROKE_WIDTH;
-                ctx.beginPath();
+                
                 // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
-                ctx.moveTo(-9999999999999, theme.AXIS_HEIGHT);
-                ctx.lineTo(9999999999999, theme.AXIS_HEIGHT);
+                ctx.save();
+                ctx.resetTransform();
+                ctx.beginPath();
+                ctx.moveTo(0, theme.AXIS_HEIGHT);
+                ctx.lineTo(100000, theme.AXIS_HEIGHT);
                 ctx.stroke();
+                ctx.restore();
             }
 
             formatTime(time, divisionSize) {
@@ -610,10 +612,10 @@
                     this.scroll(-SCROLL_JUMP, 0);
                 } else if (event.keyCode == 87) { // w
                     var boundingRect = canvas.getBoundingClientRect();
-                    this.scale(SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
+                    this.scale(SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
                 } else if (event.keyCode == 83) { // s
                     var boundingRect = canvas.getBoundingClientRect();
-                    this.scale(-SCALE_JUMP, boundingRect.left + boundingRect.width / 2, boundingRect.top + boundingRect.height / 2);
+                    this.scale(-SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
                 }
             }
         }
