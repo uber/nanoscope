@@ -50,6 +50,16 @@
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js">
     </script>
     <script type="text/javascript">
+        class Theme {
+            constructor() {
+                this.AXIS_LINE_COLOR = '#FFFFFF';
+                this.AXIS_LINE_STROKE_WIDTH = PIXEL_RATIO * 2;
+                this.AXIS_BACKGROUND_COLOR = '#303030';
+                this.AXIS_HEIGHT = PIXEL_RATIO * 30;
+                this.VIEW_PORT_COLOR = "#081016";
+            }
+        }
+
         class EventData {
 
             constructor(name, left, top, width, height) {
@@ -60,7 +70,7 @@
                 this.height = height;
                 let hashValue = this.hash(name);
                 let h = hashValue % 360;
-                this.color = `hsl(${h}, 80%, 60%)`;
+                this.color = `hsl(${h}, 70%, 60%)`;
                 this.textWidth = -1;
                 this.textCanvas = null;
             }
@@ -95,9 +105,10 @@
 
                 let modelAnchor = vec2.fromValues(this.left, this.top);
                 let screenAnchor = vec2.transformMat3(vec2.create(), modelAnchor, context.matrix);
+                context.save();
                 context.resetTransform();
                 context.drawImage(this.textCanvas, screenAnchor[0], screenAnchor[1]);
-                context.setTransform(matrix[0], matrix[1], matrix[3], matrix[4], matrix[6], matrix[7]);
+                context.restore();
             }
 
             rasterizeText(context) {
@@ -108,7 +119,6 @@
                 textContext.fillStyle = "white";
                 textContext.font = context.font;
                 textContext.fillText(this.name, 0, this.textCanvas.height);
-                // textContext.fillRect(0, 0, 40, 40);
             }
 
             hash(str) {
@@ -234,6 +244,7 @@
 
             constructor(canvas) {
                 this.canvas = canvas;
+                this.axis = new Axis(canvas);
                 this._ = canvas.getContext("2d");
             }
 
@@ -243,12 +254,9 @@
             }
 
             draw() {
-                if (!this.traceData) {
-                    return;
-                }
                 var width = canvas.width;
                 var height = canvas.height;
-                this._.fillStyle = "black";
+                this._.fillStyle = theme.VIEW_PORT_COLOR;
                 this._.resetTransform();
                 this._.fillRect(0, 0, width, height);
 
@@ -265,7 +273,12 @@
 
                 this._.matrix = matrix;
                 this._.inverse = inverse;
-                this.traceData.render(this._, matrix[0], left, right);
+
+                if (this.traceData) {
+                    this.traceData.render(this._, matrix[0], left, right);
+                }
+            
+                this.axis.render(this._, matrix[0], left, right)
             }
         }
 
@@ -410,6 +423,88 @@
             }
         }
 
+        class Axis {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this._ = canvas.getContext("2d");
+            }
+
+            render(context, scale, left, right) {
+                let ctx = this._;
+                ctx.save();
+
+                // Undo the y translation. We always want the y position to be fixed in screen space.
+                // This keeps the axis at the top of the screen.
+                ctx.translate(0, -matrix[7] / matrix[4])
+                
+                this.renderAxisBackground(scale, left, right);
+                this.renderTickMarks(scale, left, right);
+
+                ctx.restore();
+            }
+
+            renderTickMarks(scale, left, right) {
+                let ctx = this._;
+
+                // Goal of the below calculation: we want to have between 5 to 10 different markers on the screen a time.
+                // Allowing each division to decrease in size by a factor of 2 before resizing the division achieves about this.
+                // Future enhancements: we'll want to modify the math bere by some constants that will cause the numbers to look a
+                // bit nicer. For example, we'll want 250ms to be one of the divisions.
+                let division_factor = Math.log( (right - left) / 5 ) / Math.log(2);
+                division_factor = Math.round(division_factor);
+                let divisionSize = Math.pow(2, division_factor);
+
+                let xTranslation = matrix[6] / matrix[0]
+                let leftViewPortModelCoordinate = -xTranslation;
+                let firstMajorDivisionOnScreen = Math.floor(leftViewPortModelCoordinate / divisionSize);
+                ctx.lineWidth = theme.AXIS_LINE_STROKE_WIDTH / scale;
+                for (let majorDivision = firstMajorDivisionOnScreen; majorDivision < firstMajorDivisionOnScreen + 10; majorDivision++) {
+                    // note we can't allow the multiplication to affect this.
+                    ctx.beginPath();
+                    ctx.moveTo(majorDivision * divisionSize, 0);
+                    ctx.lineTo(majorDivision * divisionSize, theme.AXIS_HEIGHT);
+                    ctx.stroke();
+
+                    for (let minorDivision = 0; minorDivision < 5; minorDivision++) {
+                        ctx.beginPath();
+                        ctx.moveTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 0);
+                        ctx.lineTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 1 / 3 * theme.AXIS_HEIGHT);
+                        ctx.stroke();
+                    }
+
+                    ctx.fillStyle = theme.AXIS_LINE_COLOR;
+                    ctx.save();
+                    ctx.textBaseline='middle';
+                    ctx.translate(majorDivision * divisionSize, theme.AXIS_HEIGHT / 2)
+                    ctx.scale(1/scale, 1);
+                    ctx.fillText("  " + this.formatTime(majorDivision * divisionSize, divisionSize), 0, 0);
+                    ctx.restore();
+                }
+            }
+
+            renderAxisBackground(scale, left, right) {
+                let ctx = this._;
+                ctx.fillStyle = theme.AXIS_BACKGROUND_COLOR;
+                ctx.fillRect(left, 0, right - left, theme.AXIS_HEIGHT);
+                ctx.strokeStyle = theme.AXIS_LINE_COLOR;
+                ctx.lineWidth = theme.AXIS_LINE_STROKE_WIDTH;
+                
+                // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
+                ctx.save();
+                ctx.resetTransform();
+                ctx.beginPath();
+                ctx.moveTo(0, theme.AXIS_HEIGHT);
+                ctx.lineTo(100000, theme.AXIS_HEIGHT);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            formatTime(time, divisionSize) {
+                // TODO: this needs to be improved. For now we just show everything in ns.
+                return Math.round(time) + " ns"
+            }
+        };
+
         var X = 1;
 
         class GestureHandler {
@@ -420,7 +515,7 @@
                 mat3.translate(out, matrix, translation);
                 matrix = out;
                 // Enforce top bounds: no reason we should allow the user to scroll well beyond the top of the screen.
-                matrix[7] = Math.min(matrix[7], TOP_OF_SCREEN);
+                matrix[7] = Math.min(TOP_OF_MAIN_VIEW / matrix[4], matrix[7]);
             }
 
             scale(scale, x, y) {
@@ -466,7 +561,6 @@
             }
         }
 
-        let TOP_OF_SCREEN = 10;
         let canvas = document.getElementById("canvas");
         let fileElement = document.getElementById('file');
 
@@ -485,6 +579,8 @@
 
             return dpr / bsr;
         })();
+        let theme = new Theme();
+        let TOP_OF_MAIN_VIEW = theme.AXIS_HEIGHT;
 
         function resizeCanvas() {
             canvas.width = canvas.getBoundingClientRect().width * PIXEL_RATIO;
@@ -504,7 +600,7 @@
                     let start = col * colWidth;
                     let end = start + colWidth;
                     count++;
-                    traceData.addEvent(start, end - padding, row);
+                    traceData.addEvent("fakename", start, end - padding, row);
                 }
                 colCount *= 10;
             }
@@ -551,10 +647,13 @@
         }
 
         function initializeViewPort() {
-            matrix[7] = TOP_OF_SCREEN;
+            matrix[7] = TOP_OF_MAIN_VIEW / matrix[4];
+            // TODO: we can adjust the starting size of the screen by mutating matrix[0].
         }
 
         loadInlinedData();
+        scroll(0, 0);
+        renderer.draw();
         initializeViewPort();
 
         document.getElementById('file').addEventListener('change', event => {
@@ -563,6 +662,7 @@
             fileReader.onload = e => {
                 let bytes = new Uint8Array(e.target.result);
                 onTraceBytes(bytes, false);
+                initializeViewPort();
             };
             fileReader.readAsArrayBuffer(file);
         }, false);
