@@ -34,6 +34,7 @@
         }
         .canvas {
             height: 100vh;
+            width: 100vw;
         }
         .progress {
             height: 5px;
@@ -60,7 +61,7 @@
                 this.AXIS_HEIGHT = PIXEL_RATIO * 30;
                 this.VIEW_PORT_COLOR = "#081016";
                 this.EVENT_BORDER_COLOR= '#2a555f';
-                this.EVENT_HEIGHT = 50;
+                this.EVENT_HEIGHT = 40;
                 this._COLOR_PALETTE = [
                     // From one color gradient.
                     '#4f68ab',
@@ -84,9 +85,47 @@
             }
         }
 
+        class TextPool {
+
+            constructor() {
+                this.canvases = {};
+                this.font = '18px Roboto';
+            }
+
+            getOrRasterize(name) {
+                let canvas = this.canvases[name];
+                if (canvas) {
+                    return canvas;
+                }
+
+                canvas = this.rasterize(name);
+                this.canvases[name] = canvas;
+                return canvas;
+            }
+
+            rasterize(name) {
+                let canvas = document.createElement('canvas');
+                var context = canvas.getContext('2d');
+
+                context.fillStyle = "white";
+                context.font = this.font;
+                context.textBaseline='middle';
+                let textWidth = context.measureText(name).width;
+                canvas.width = textWidth * PIXEL_RATIO;
+                canvas.height = theme.EVENT_HEIGHT;
+
+                context.fillStyle = "white";
+                context.font = this.font;
+                context.textBaseline='middle';
+                context.fillText(name, 0, canvas.height / 2);
+                return canvas;
+            }
+        }
+
         class EventData {
 
-            constructor(name, left, top, width, height) {
+            constructor(textPool, name, left, top, width, height) {
+                this.textPool = textPool;
                 this.name = name;
                 this.left = left;
                 this.top = top;
@@ -94,90 +133,58 @@
                 this.height = height;
                 let hashValue = this.hash(name);
                 this.color = theme.colorFromColorPalette(hashValue);
-                this.textWidth = -1;
                 this.textCanvas = null;
             }
 
-            render(context, scale) {
+            render(context, scale, left, right) {
                 this.renderBackground(context, scale);
-                this.renderName(context, scale);
+                this.renderName(context, scale, left, right);
             }
 
             renderBackground(context, scale) {
                 context.fillStyle = this.color;
                 context.fillRect(this.left, this.top, this.width, this.height);
-
-                // Don't draw anything that will appear really small. Otherwise draw performance is terrible.
-                if (scale * this.width > 5) {
-                    // Below we draw three strokes instead of using a rectangle. This is necessary
-                    // since each line of the rectangle needs to be drawn unscaled. So we need to perform
-                    // scale operations on two of the lines. As for the forth line: we skip it. It is redundnat.
-                    context.strokeStyle = theme.EVENT_BORDER_COLOR;
-                    let right = this.left + this.width;
-
-                    // Top
-                    context.beginPath();
-                    context.moveTo(this.left, this.top);
-                    context.lineTo(right, this.top);
-                    context.stroke();
-
-                    // Left
-                    context.save()
-                    context.translate(this.left, 0);
-                    context.scale(1/scale, 1);
-                    context.moveTo(0, this.top);
-                    context.lineTo(0, this.top + this.height);
-                    context.stroke();
-                    context.restore()
-
-                    // right line
-                    context.save()
-                    context.translate(right, 0);
-                    context.scale(1/scale, 1);
-                    context.moveTo(0, this.top);
-                    context.lineTo(0, this.top + this.height);
-                    context.stroke();
-                    context.restore();
-
-                    context.closePath();
-                }
             }
 
-            renderName(context, scale) {
-                let scaledWidth = scale * this.width;
-                if (scaledWidth < 100) {
-                    return;
-                }
-
-                if (this.textWidth == -1) {
-                    this.textWidth = context.measureText(this.name).width;
-                }
-
-                if (this.textWidth > scaledWidth) {
+            renderName(context, scale, left, right) {
+                let cellScreenWidth = scale * this.width;
+                if (cellScreenWidth < 25) {
                     return;
                 }
 
                 if (this.textCanvas == null) {
-                    this.rasterizeText(context);
+                    this.textCanvas = this.textPool.getOrRasterize(this.name);
                 }
 
-                let modelAnchor = vec2.fromValues(this.left, this.top);
-                let screenAnchor = vec2.transformMat3(vec2.create(), modelAnchor, context.matrix);
+                let nameModelHeight = this.textCanvas.height;
+                let nameModelWidth = Math.min(this.width, this.textCanvas.width / PIXEL_RATIO / scale);
+
+                // Preferred name position - centered on screen with slight offset.
+                let nameModelLeft = left + (right - left) / 2 - 300;
+                let nameModelRight = nameModelLeft + nameModelWidth;
+
+                // Ensure name within left bounds.
+                nameModelLeft = Math.max(this.left, nameModelLeft);
+                nameModelRight = nameModelLeft + nameModelWidth;
+
+                // Ensure name within right bounds.
+                nameModelRight = Math.min(this.left + this.width, nameModelRight);
+                nameModelLeft = nameModelRight - nameModelWidth;
+
+                // let nameModelLeft = this.left;
+                let nameModelTop = this.top;
+
+                let nameModelPosition = vec2.fromValues(nameModelLeft, nameModelTop);
+                let nameScreenPosition = vec2.transformMat3(vec2.create(), nameModelPosition, context.matrix);
+                let nameScreenWidth = nameModelWidth * scale;
+
                 context.save();
                 context.resetTransform();
-                context.drawImage(this.textCanvas, screenAnchor[0], screenAnchor[1]);
+                context.drawImage(
+                    this.textCanvas,
+                    0, 0, nameScreenWidth, nameModelHeight,
+                    nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
                 context.restore();
-            }
-
-            rasterizeText(context) {
-                this.textCanvas = document.createElement('canvas');
-                this.textCanvas.width = this.textWidth * PIXEL_RATIO;
-                this.textCanvas.height = theme.EVENT_HEIGHT;
-                var textContext = this.textCanvas.getContext('2d');
-                textContext.fillStyle = "white";
-                textContext.font = context.font;
-                textContext.textBaseline='middle';
-                textContext.fillText("   " + this.name, 0, this.textCanvas.height / 2);
             }
 
             hash(str) {
@@ -197,13 +204,18 @@
 
         class RowData {
 
-            constructor(top, bottom) {
+            constructor(textPool, top, bottom) {
+                this.textPool = textPool;
                 this.top = top;
                 this.bottom = bottom;
                 this.eventDatas = [];
             }
 
-            render(context, scale, left, right) {
+            render(context, scale, left, top, right, bottom) {
+                if (this.top > bottom || this.bottom < top) {
+                    return false;
+                }
+
                 let leftIndex = this.binarySearch(this.eventDatas, eventData => eventData.left, item => item >= left);
                 let rightIndex = this.binarySearch(this.eventDatas, eventData => eventData.left + eventData.width, item => item >= right);
 
@@ -211,12 +223,13 @@
                 rightIndex = Math.min(rightIndex, this.eventDatas.length - 1);
 
                 for (let i = leftIndex; i <= rightIndex; i++) {
-                    this.eventDatas[i].render(context, scale);
+                    this.eventDatas[i].render(context, scale, left, right);
                 }
+                return true;
             }
 
             addEvent(name, start, end) {
-                this.eventDatas.push(new EventData(name, start, this.top, end - start, this.bottom - this.top));
+                this.eventDatas.push(new EventData(this.textPool, name, start, this.top, end - start, this.bottom - this.top));
             }
 
             binarySearch(array, map, pred) {
@@ -235,18 +248,19 @@
 
         class ScaleData {
 
-            constructor(minScale, minCellWidth) {
+            constructor(textPool, minScale, minCellWidth) {
+                this.textPool = textPool;
                 this.minScale = minScale;
                 this.minCellWidth = minCellWidth;
                 this.rowDatas = [];
             }
 
-            render(context, scale, left, right) {
+            render(context, scale, left, top, right, bottom) {
                 if (scale < this.minScale) {
                     return false;
                 }
                 for (let rowData of this.rowDatas) {
-                    rowData.render(context, scale, left, right);
+                    rowData.render(context, scale, left, top, right, bottom);
                 }
                 return true;
             }
@@ -259,7 +273,7 @@
                     let rowHeight = theme.EVENT_HEIGHT;
                     let rowTop = this.rowDatas.length * rowHeight;
                     let rowBottom = rowTop + rowHeight;
-                    this.rowDatas.push(new RowData(rowTop, rowBottom));
+                    this.rowDatas.push(new RowData(this.textPool, rowTop, rowBottom));
                 }
 
                 this.rowDatas[stackDepth - 1].addEvent(name, start, end);
@@ -274,12 +288,13 @@
                 let factor = 10;
                 this.scaleDatas = [];
 
+                let textPool = new TextPool();
                 let minScale = 1;
                 for (let i = 0; i < scaleCount; i++) {
                     let maxScale = minScale * factor;
                     let minCellWidth = minCellPixelWidth / maxScale;
 
-                    this.scaleDatas.push(new ScaleData(minScale, minCellWidth));
+                    this.scaleDatas.push(new ScaleData(textPool, minScale, minCellWidth));
                     minScale /= factor;
                 }
             }
@@ -290,9 +305,9 @@
                 }
             }
 
-            render(context, scale, left, right) {
+            render(context, scale, left, top, right, bottom) {
                 for (let scaleData of this.scaleDatas) {
-                    if (scaleData.render(context, scale, left, right)) {
+                    if (scaleData.render(context, scale, left, top, right, bottom)) {
                         return;
                     }
                 }
@@ -319,13 +334,15 @@
                 this._.resetTransform();
                 this._.fillRect(0, 0, canvas.width, canvas.height);
 
-                let screenLeft = vec2.fromValues(0, 0);
-                let screenRight = vec2.fromValues(width, 0);
+                let screenLeftTop = vec2.fromValues(0, 0);
+                let screenRightBottom = vec2.fromValues(width, height);
                 let inverse = mat3.invert(mat3.create(), matrix);
-                let modelLeft = vec2.transformMat3(vec2.create(), screenLeft, inverse);
-                let modelRight = vec2.transformMat3(vec2.create(), screenRight, inverse);
-                let left = modelLeft[0];
-                let right  = modelRight[0];
+                let modelLeftTop = vec2.transformMat3(vec2.create(), screenLeftTop, inverse);
+                let modelRightBottom = vec2.transformMat3(vec2.create(), screenRightBottom, inverse);
+                let left = modelLeftTop[0];
+                let top = modelLeftTop[1];
+                let right  = modelRightBottom[0];
+                let bottom  = modelRightBottom[1];
 
                 this._.font = '24px Roboto';
                 this._.setTransform(matrix[0], matrix[1], matrix[3], matrix[4], matrix[6], matrix[7]);
@@ -334,7 +351,7 @@
                 this._.inverse = inverse;
 
                 if (this.traceData) {
-                    this.traceData.render(this._, matrix[0], left, right);
+                    this.traceData.render(this._, matrix[0], left, top, right, bottom);
                 }
             
                 this.axis.render(this._, matrix[0], left, right)
@@ -616,7 +633,10 @@
                 } else if (event.keyCode == 83) { // s
                     var boundingRect = canvas.getBoundingClientRect();
                     this.scale(-SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
+                } else {
+                    return false;
                 }
+                return true;
             }
         }
 
@@ -732,10 +752,11 @@
             renderer.draw();
         });
         document.addEventListener('keydown', event => {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            gestureHandler.onKeyPress(event)
-            renderer.draw();
+            if (gestureHandler.onKeyPress(event)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                renderer.draw();
+            }
         }, false);
     </script>
 </body>
