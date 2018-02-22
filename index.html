@@ -1,41 +1,39 @@
 <html>
 <head>
     <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
-</head>
-<body>
-    <script id="data" type="application/octet-stream"></script>
-    <div class="main">
-        <div class="header">
-            <div id="progress" class="progress"></div>
-            <input type="file" id="file" name="file">
-        </div>
-        <div class="content">
-            <canvas class="canvas" id="canvas" onresize="resizeCanvas()"></canvas>
-        </div>
-    </div>
     <style type="text/css">
         html, body {
             margin: 0;
             height: 100%;
             overflow: hidden;
         }
+
         .main {
             display: grid;
             grid-template-columns: 1fr;
             grid-template-rows: min-content 1fr;
         }
+
         .header {
             grid-row: 1;
             grid-column: 1;
         }
+
         .content {
             grid-row: 2;
             grid-column: 1;
         }
+
+        .axisCanvas {
+            height: 30px;
+            width: 100vw;
+        }
+
         .canvas {
             height: 100vh;
             width: 100vw;
         }
+
         .progress {
             height: 5px;
             width: 100%;
@@ -46,718 +44,812 @@
             /*transition-property: transform;*/
             background-color: green;
         }
-        .notransition {
-            transition: none;
-        }
     </style>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js">
-    </script>
-    <script type="text/javascript">
-        class Theme {
-            constructor() {
-                this.AXIS_LINE_COLOR = '#FFFFFF';
-                this.AXIS_LINE_STROKE_WIDTH = PIXEL_RATIO * 2;
-                this.AXIS_BACKGROUND_COLOR = '#303030';
-                this.AXIS_HEIGHT = PIXEL_RATIO * 30;
-                this.VIEW_PORT_COLOR = "#081016";
-                this.EVENT_BORDER_COLOR= '#2a555f';
-                this.EVENT_HEIGHT = 40;
-                this._COLOR_PALETTE = [
-                    // From one color gradient.
-                    '#4f68ab',
-                    '#4b66a6',
-                    '#415a94',
-                    '#374d80',
-                    '#30446f',
-                    '#28375e',
-                    '#202e4f',
-                    // From a second gradient
-                    '#4d7166',
-                    '#83b8ab',
-                    '#151918',
-                    '#1b2b26',
-                ];
-            }
+</head>
+<body>
+<div class="main">
+    <div class="header">
+        <div id="progress" class="progress"></div>
+        <input type="file" id="file" name="file">
+    </div>
+    <div class="content">
+        <canvas class="axisCanvas" id="axisCanvas"></canvas>
+        <canvas class="canvas" id="canvas"></canvas>
+    </div>
+</div>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js"></script>
 
-            colorFromColorPalette(hash) {
-                let h = hash % this._COLOR_PALETTE.length;
-                return this._COLOR_PALETTE[h];
-            }
-        }
+<script>
+    'use strict';
 
-        class TextPool {
+    const PIXEL_RATIO = (function () {
+        let context = canvas.getContext("2d"),
+            dpr = window.devicePixelRatio || 1,
+            bsr = context.webkitBackingStorePixelRatio ||
+                context.mozBackingStorePixelRatio ||
+                context.msBackingStorePixelRatio ||
+                context.oBackingStorePixelRatio ||
+                context.backingStorePixelRatio || 1;
 
-            constructor() {
-                this.canvases = {};
-                this.font = '18px Roboto';
-            }
+        return dpr / bsr;
+    })();
 
-            getOrRasterize(name) {
-                let canvas = this.canvases[name];
-                if (canvas) {
-                    return canvas;
-                }
+    const THEME = {
+        'AXIS_LINE_COLOR': '#FFFFFF',
+        'AXIS_LINE_STROKE_WIDTH': PIXEL_RATIO * 2,
+        'AXIS_BACKGROUND_COLOR': '#303030',
+        'AXIS_HEIGHT': PIXEL_RATIO * 30,
+        'VIEW_PORT_COLOR': "#081016",
+        'EVENT_BORDER_COLOR': '#2a555f',
+        'EVENT_HEIGHT': 40,
+        'COLOR_PALETTE':
+            [
+                '#4f68ab',
+                '#4b66a6',
+                '#415a94',
+                '#374d80',
+                '#30446f',
+                '#28375e',
+                '#202e4f',
+                '#4d7166',
+                '#83b8ab',
+                '#151918',
+                '#1b2b26'
+            ]
+    };
 
-                canvas = this.rasterize(name);
-                this.canvases[name] = canvas;
-                return canvas;
-            }
+    class TraceDataLoader {
 
-            rasterize(name) {
-                let canvas = document.createElement('canvas');
-                var context = canvas.getContext('2d');
+        constructor(bytes) {
+            this.charZero = '0'.charCodeAt(0);
+            this.charColon = ':'.charCodeAt(0);
+            this.charNewline = '\n'.charCodeAt(0);
+            this.charPeriod = '.'.charCodeAt(0);
+            this.charLeftParen = '('.charCodeAt(0);
 
-                context.fillStyle = "white";
-                context.font = this.font;
-                context.textBaseline='middle';
-                let textWidth = context.measureText(name).width;
-                canvas.width = textWidth * PIXEL_RATIO;
-                canvas.height = theme.EVENT_HEIGHT;
-
-                context.fillStyle = "white";
-                context.font = this.font;
-                context.textBaseline='middle';
-                context.fillText(name, 0, canvas.height / 2);
-                return canvas;
-            }
-        }
-
-        class EventData {
-
-            constructor(textPool, name, left, top, width, height) {
-                this.textPool = textPool;
-                this.name = name;
-                this.left = left;
-                this.top = top;
-                this.width = width;
-                this.height = height;
-                let hashValue = this.hash(name);
-                this.color = theme.colorFromColorPalette(hashValue);
-                this.textCanvas = null;
-            }
-
-            render(context, scale, left, right) {
-                this.renderBackground(context, scale);
-                this.renderName(context, scale, left, right);
-            }
-
-            renderBackground(context, scale) {
-                context.fillStyle = this.color;
-                context.fillRect(this.left, this.top, this.width, this.height);
-            }
-
-            renderName(context, scale, left, right) {
-                let cellScreenWidth = scale * this.width;
-                if (cellScreenWidth < 25) {
-                    return;
-                }
-
-                if (this.textCanvas == null) {
-                    this.textCanvas = this.textPool.getOrRasterize(this.name);
-                }
-
-                let nameModelHeight = this.textCanvas.height;
-                let nameModelWidth = Math.min(this.width, this.textCanvas.width / PIXEL_RATIO / scale);
-
-                // Preferred name position - centered on screen with slight offset.
-                let nameModelLeft = left + (right - left) / 2 - 300;
-                let nameModelRight = nameModelLeft + nameModelWidth;
-
-                // Ensure name within left bounds.
-                nameModelLeft = Math.max(this.left, nameModelLeft);
-                nameModelRight = nameModelLeft + nameModelWidth;
-
-                // Ensure name within right bounds.
-                nameModelRight = Math.min(this.left + this.width, nameModelRight);
-                nameModelLeft = nameModelRight - nameModelWidth;
-
-                // let nameModelLeft = this.left;
-                let nameModelTop = this.top;
-
-                let nameModelPosition = vec2.fromValues(nameModelLeft, nameModelTop);
-                let nameScreenPosition = vec2.transformMat3(vec2.create(), nameModelPosition, context.matrix);
-                let nameScreenWidth = nameModelWidth * scale;
-
-                context.save();
-                context.resetTransform();
-                context.drawImage(
-                    this.textCanvas,
-                    0, 0, nameScreenWidth, nameModelHeight,
-                    nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
-                context.restore();
-            }
-
-            hash(str) {
-              var hash = 5381,
-                  i    = str.length;
-
-              while(i) {
-                hash = (hash * 33) ^ str.charCodeAt(--i);
-              }
-
-              /* JavaScript does bitwise operations (like XOR, above) on 32-bit signed
-               * integers. Since we want the results to be always positive, convert the
-               * signed int to an unsigned by doing an unsigned bitshift. */
-              return hash >>> 0;
-            }
-        }
-
-        class RowData {
-
-            constructor(textPool, top, bottom) {
-                this.textPool = textPool;
-                this.top = top;
-                this.bottom = bottom;
-                this.eventDatas = [];
-            }
-
-            render(context, scale, left, top, right, bottom) {
-                if (this.top > bottom || this.bottom < top) {
-                    return false;
-                }
-
-                let leftIndex = this.binarySearch(this.eventDatas, eventData => eventData.left, item => item >= left);
-                let rightIndex = this.binarySearch(this.eventDatas, eventData => eventData.left + eventData.width, item => item >= right);
-
-                leftIndex = Math.max(leftIndex - 1, 0);
-                rightIndex = Math.min(rightIndex, this.eventDatas.length - 1);
-
-                for (let i = leftIndex; i <= rightIndex; i++) {
-                    this.eventDatas[i].render(context, scale, left, right);
-                }
-                return true;
-            }
-
-            addEvent(name, start, end) {
-                this.eventDatas.push(new EventData(this.textPool, name, start, this.top, end - start, this.bottom - this.top));
-            }
-
-            binarySearch(array, map, pred) {
-                let lo = -1, hi = array.length;
-                while (1 + lo !== hi) {
-                    const mi = lo + ((hi - lo) >> 1);
-                    if (pred(map(array[mi]))) {
-                        hi = mi;
-                    } else {
-                        lo = mi;
-                    }
-                }
-                return hi;
-            }
-        }
-
-        class ScaleData {
-
-            constructor(textPool, minScale, minCellWidth) {
-                this.textPool = textPool;
-                this.minScale = minScale;
-                this.minCellWidth = minCellWidth;
-                this.rowDatas = [];
-            }
-
-            render(context, scale, left, top, right, bottom) {
-                if (scale < this.minScale) {
-                    return false;
-                }
-                for (let rowData of this.rowDatas) {
-                    rowData.render(context, scale, left, top, right, bottom);
-                }
-                return true;
-            }
-
-            addEvent(name, start, end, stackDepth) {
-                if (end - start < this.minCellWidth) {
-                    return;
-                }
-                while (this.rowDatas.length < stackDepth) {
-                    let rowHeight = theme.EVENT_HEIGHT;
-                    let rowTop = this.rowDatas.length * rowHeight;
-                    let rowBottom = rowTop + rowHeight;
-                    this.rowDatas.push(new RowData(this.textPool, rowTop, rowBottom));
-                }
-
-                this.rowDatas[stackDepth - 1].addEvent(name, start, end);
-            }
-        }
-
-        class TraceData {
-
-            constructor() {
-                let scaleCount = 10;
-                let minCellPixelWidth = 2;
-                let factor = 10;
-                this.scaleDatas = [];
-
-                let textPool = new TextPool();
-                let minScale = 1;
-                for (let i = 0; i < scaleCount; i++) {
-                    let maxScale = minScale * factor;
-                    let minCellWidth = minCellPixelWidth / maxScale;
-
-                    this.scaleDatas.push(new ScaleData(textPool, minScale, minCellWidth));
-                    minScale /= factor;
-                }
-            }
-
-            addEvent(name, start, end, stackDepth) {
-                for (let scaleData of this.scaleDatas) {
-                    scaleData.addEvent(name, start, end, stackDepth);
-                }
-            }
-
-            render(context, scale, left, top, right, bottom) {
-                for (let scaleData of this.scaleDatas) {
-                    if (scaleData.render(context, scale, left, top, right, bottom)) {
-                        return;
-                    }
-                }
-            }
-        }
-
-        class Renderer {
-
-            constructor(canvas) {
-                this.canvas = canvas;
-                this.axis = new Axis(canvas);
-                this._ = canvas.getContext("2d");
-            }
-
-            setTraceData(traceData) {
-                this.traceData = traceData;
-                this.draw();
-            }
-
-            draw() {
-                var width = canvas.width;
-                var height = canvas.height;
-                this._.fillStyle = theme.VIEW_PORT_COLOR;
-                this._.resetTransform();
-                this._.fillRect(0, 0, canvas.width, canvas.height);
-
-                let screenLeftTop = vec2.fromValues(0, 0);
-                let screenRightBottom = vec2.fromValues(width, height);
-                let inverse = mat3.invert(mat3.create(), matrix);
-                let modelLeftTop = vec2.transformMat3(vec2.create(), screenLeftTop, inverse);
-                let modelRightBottom = vec2.transformMat3(vec2.create(), screenRightBottom, inverse);
-                let left = modelLeftTop[0];
-                let top = modelLeftTop[1];
-                let right  = modelRightBottom[0];
-                let bottom  = modelRightBottom[1];
-
-                this._.font = '24px Roboto';
-                this._.setTransform(matrix[0], matrix[1], matrix[3], matrix[4], matrix[6], matrix[7]);
-
-                this._.matrix = matrix;
-                this._.inverse = inverse;
-
-                if (this.traceData) {
-                    this.traceData.render(this._, matrix[0], left, top, right, bottom);
-                }
-            
-                this.axis.render(this._, matrix[0], left, right)
-            }
-        }
-
-        let charZero = '0'.charCodeAt(0);
-        let charColon = ':'.charCodeAt(0);
-        let charNewline = '\n'.charCodeAt(0);
-        let charPeriod = '.'.charCodeAt(0);
-        let charLeftParen = '('.charCodeAt(0);
-
-        class Event {
-
-            constructor(name, shortName, start) {
-                this.name = name;
-                this.shortName = shortName;
-                this.start = start;
-                this.end = -1;
-            }
-        }
-
-        class TraceDataLoader {
-
-            constructor(bytes) {
-                this.traceData = new TraceData();
-                this.onProgress = () => {};
-                this.onDone = () => {};
-                this.callStack = [];
-                this.firstTimestamp = -1;
-                this.timestamp = -1;
-                this.done = false;
-                this.totalBytes = bytes.length;
-                this.bytesRead = 0;
-
-                let it = bytes.values();
-                this.next = () => {
-                    this.bytesRead++;
-                    return it.next();
-                };
-            }
-
-            loadTraceData() {
-                this.loop();
-            }
-
-            loop() {
-                this.loadWithDeadline(this.createDeadline());
-                if (this.done) {
-                    this.onProgress(this.totalBytes);
-                    this.onDone(this.traceData);
-                } else {
-                    this.onProgress(this.bytesRead);
-                    requestAnimationFrame(this.loop.bind(this));
-                }
-            }
-
-            createDeadline() {
-                let timeout = 500;
-                let deadline = Date.now() + timeout;
-                return {
-                    timeRemaining: () => deadline - Date.now()
-                };
+            this.onProgress = () => {
             };
+            this.onDone = () => {
+            };
+            this.onPush = () => {
+            };
+            this.onPop = () => {
+            };
+            this.callStack = [];
+            this.firstTimestamp = -1;
+            this.timestamp = -1;
+            this.done = false;
+            this.totalBytes = bytes.length;
+            this.bytesRead = 0;
 
-            loadWithDeadline(deadline = { timeRemaining: () => 1 }) {
-                while (!this.done && deadline.timeRemaining() > 0) {
-                    this.loadLine();
-                }
-                if (this.done) {
-                    while (this.callStack.length > 0) {
-                        this.pop();
-                    }
-                }
-            }
+            let it = bytes.values();
+            this.next = () => {
+                this.bytesRead++;
+                return it.next();
+            };
+        }
 
-            loadLine() {
-                let loadedTimestamp = this.loadTimestamp();
-                if (this.done) {
-                    return;
-                }
-                this.timestamp = loadedTimestamp;
-                let names = this.loadName();
-                let name = names[0];
-                let shortName = names[1];
-                if (this.firstTimestamp == -1) {
-                    this.firstTimestamp = this.timestamp;
-                }
-                this.timestamp -= this.firstTimestamp;
-                if (name == "POP") {
-                    if (this.callStack.length > 0) {
-                        this.pop();
-                    }
-                } else {
-                    this.callStack.push(new Event(name, shortName, this.timestamp));
-                }
-            }
+        load() {
+            this.loop();
+        }
 
-            pop() {
-                let event = this.callStack.pop();
-                event.end = this.timestamp;
-                this.traceData.addEvent(event.shortName, event.start, event.end, this.callStack.length + 1);
-            }
-
-            loadTimestamp() {
-                let next = this.next();
-                if (next.done) {
-                    this.done = true;
-                    return;
-                }
-
-                let timestamp = 0;
-                while (next.value != charColon) {
-                    timestamp *= 10;
-                    timestamp += next.value - charZero;
-                    next = this.next();
-                }
-                return timestamp;
-            }
-
-            loadName() {
-                let name = "";
-                let shortName = "";
-                let next = this.next();
-                let index = 0;
-                let periods = [];
-                while (!next.done && next.value != charNewline) {
-                    if (!shortName) {
-                        if (next.value == charPeriod) {
-                            if (periods.size < 2) {
-                                periods.push(index);
-                            } else {
-                                periods[0] = periods[1];
-                                periods[1] = index;
-                            }
-                        } else if (next.value == charLeftParen) {
-                            shortName = name.substring(periods[0] + 1, index)
-                        }
-                    }
-                    name += String.fromCharCode(next.value);
-                    next = this.next();
-                    index++;
-                }
-                return [name, shortName];
+        loop() {
+            this.loadWithDeadline(this.createDeadline());
+            if (this.done) {
+                this.onProgress(this.totalBytes);
+                this.onDone();
+            } else {
+                this.onProgress(this.bytesRead);
+                requestAnimationFrame(this.loop.bind(this));
             }
         }
 
-        class Axis {
-            constructor(canvas) {
-                this.canvas = canvas;
-                this._ = canvas.getContext("2d");
-            }
-
-            render(context, scale, left, right) {
-                context.save();
-
-                // Undo the y translation. We always want the y position to be fixed in screen space. This keeps the axis at the top of the screen.
-                context.translate(0, -matrix[7] / matrix[4])
-                
-                this.renderAxisBackground(context, scale, left, right);
-                this.renderTickMarks(context, scale, left, right);
-
-                context.restore();
-            }
-
-            renderTickMarks(ctx, scale, left, right) {
-
-                // Goal of the below calculation: we want to have between 5 to 10 different markers on the screen a time.
-                // Allowing each division to decrease in size by a factor of 2 before resizing the division achieves about this.
-                // Future enhancements: we'll want to modify the math bere by some constants that will cause the numbers to look a
-                // bit nicer. For example, we'll want 250ms to be one of the divisions.
-                let division_factor = Math.log( (right - left) / 5 ) / Math.log(2);
-                division_factor = Math.round(division_factor);
-                let divisionSize = Math.pow(2, division_factor);
-
-                let xTranslation = matrix[6] / matrix[0]
-                let leftViewPortModelCoordinate = -xTranslation;
-                let firstMajorDivisionOnScreen = Math.floor(leftViewPortModelCoordinate / divisionSize);
-                ctx.lineWidth = theme.AXIS_LINE_STROKE_WIDTH / scale;
-                for (let majorDivision = firstMajorDivisionOnScreen; majorDivision < firstMajorDivisionOnScreen + 10; majorDivision++) {
-                    // note we can't allow the multiplication to affect this.
-                    ctx.beginPath();
-                    ctx.moveTo(majorDivision * divisionSize, 0);
-                    ctx.lineTo(majorDivision * divisionSize, theme.AXIS_HEIGHT);
-                    ctx.stroke();
-                    ctx.closePath();
-
-                    for (let minorDivision = 0; minorDivision < 5; minorDivision++) {
-                        ctx.beginPath();
-                        ctx.moveTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 0);
-                        ctx.lineTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 1 / 3 * theme.AXIS_HEIGHT);
-                        ctx.stroke();
-                        ctx.closePath();
-                    }
-
-                    ctx.fillStyle = theme.AXIS_LINE_COLOR;
-                    ctx.save();
-                    ctx.textBaseline='middle';
-                    ctx.translate(majorDivision * divisionSize, theme.AXIS_HEIGHT / 2)
-                    ctx.scale(1/scale, 1);
-                    ctx.fillText("  " + this.formatTime(majorDivision * divisionSize, divisionSize), 0, 0);
-                    ctx.restore();
-                }
-
-                ctx.closePath();
-            }
-
-            renderAxisBackground(ctx, scale, left, right) {
-                ctx.fillStyle = theme.AXIS_BACKGROUND_COLOR;
-                ctx.fillRect(left, 0, right - left, theme.AXIS_HEIGHT);
-                ctx.strokeStyle = theme.AXIS_LINE_COLOR;
-                ctx.lineWidth = theme.AXIS_LINE_STROKE_WIDTH;
-                
-                // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
-                ctx.save();
-                ctx.resetTransform();
-                ctx.beginPath();
-                ctx.moveTo(0, theme.AXIS_HEIGHT);
-                ctx.lineTo(100000, theme.AXIS_HEIGHT);
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            formatTime(time, divisionSize) {
-                // TODO: this needs to be improved. For now we just show everything in ns.
-                return Math.round(time) + " ns"
-            }
+        createDeadline() {
+            let timeout = 500;
+            let deadline = Date.now() + timeout;
+            return {
+                timeRemaining: () => deadline - Date.now()
+            };
         };
 
-        var X = 1;
+        loadWithDeadline(deadline = {timeRemaining: () => 1}) {
+            while (!this.done && deadline.timeRemaining() > 0) {
+                this.loadLine();
+            }
+            if (this.done) {
+                while (this.callStack.length > 0) {
+                    this.pop();
+                }
+            }
+        }
 
-        class GestureHandler {
+        loadLine() {
+            let loadedTimestamp = this.loadTimestamp();
+            if (this.done) {
+                return;
+            }
+            this.timestamp = loadedTimestamp;
+            let names = this.loadName();
+            let name = names[0];
+            let shortName = names[1];
+            if (this.firstTimestamp === -1) {
+                this.firstTimestamp = this.timestamp;
+            }
+            this.timestamp -= this.firstTimestamp;
+            if (name === "POP") {
+                if (this.callStack.length > 0) {
+                    this.pop();
+                }
+            } else {
+                let stackDepth = this.callStack.length + 1;
+                let call = new TraceCall(name, shortName, stackDepth, this.timestamp);
+                this.callStack.push(call);
+                this.onPush(call);
+            }
+        }
 
-            scroll(dx, dy) {
-                var out = mat3.create();
-                var translation = vec2.fromValues(dx / matrix[0], dy);
-                mat3.translate(out, matrix, translation);
-                matrix = out;
-                // Enforce top bounds: no reason we should allow the user to scroll well beyond the top of the screen.
-                matrix[7] = Math.min(TOP_OF_MAIN_VIEW / matrix[4], matrix[7]);
+        pop() {
+            let call = this.callStack.pop();
+            call.end = this.timestamp;
+            this.onPop(call);
+        }
+
+        loadTimestamp() {
+            let next = this.next();
+            if (next.done) {
+                this.done = true;
+                return;
             }
 
-            scale(scale, x, y) {
-                var K = 10;
-                var originalScreenPoint = vec2.fromValues(x, y);
-                var inverse = mat3.invert(mat3.create(), matrix);
-                var originalModelPoint = vec2.transformMat3(vec2.create(), originalScreenPoint, inverse);
-                scale = Math.sign(scale) * Math.min(K, Math.abs(scale)) / K + 1;
-                matrix = mat3.scale(mat3.create(), matrix, vec2.fromValues(scale, 1));
-                var newScreenPoint = vec2.transformMat3(vec2.create(), originalModelPoint, matrix);
-                var offsetX = originalScreenPoint[0] - newScreenPoint[0];
-                var offsetY = originalScreenPoint[1] - newScreenPoint[1];
-                matrix = mat3.translate(mat3.create(), matrix, vec2.fromValues(offsetX / matrix[0], offsetY));
+            let timestamp = 0;
+            while (next.value !== this.charColon) {
+                timestamp *= 10;
+                timestamp += next.value - this.charZero;
+                next = this.next();
+            }
+            return timestamp;
+        }
+
+        loadName() {
+            let name = "";
+            let shortName = "";
+            let next = this.next();
+            let index = 0;
+            let periods = [];
+            while (!next.done && next.value !== this.charNewline) {
+                if (!shortName) {
+                    if (next.value === this.charPeriod) {
+                        if (periods.size < 2) {
+                            periods.push(index);
+                        } else {
+                            periods[0] = periods[1];
+                            periods[1] = index;
+                        }
+                    } else if (next.value === this.charLeftParen) {
+                        shortName = name.substring(periods[0] + 1, index)
+                    }
+                }
+                name += String.fromCharCode(next.value);
+                next = this.next();
+                index++;
+            }
+            return [name, shortName];
+        }
+    }
+
+    class TextPool {
+
+        constructor() {
+            this.canvases = {};
+            this.font = '18px Roboto';
+        }
+
+        getOrRasterize(name) {
+            let canvas = this.canvases[name];
+            if (canvas) {
+                return canvas;
             }
 
-            onMouseWheel(event) {
-                if (event.ctrlKey) {
-                    var boundingRect = canvas.getBoundingClientRect();
-                    var x = event.clientX - boundingRect.left;
-                    var y = event.clientY - boundingRect.top;
-                    x *= PIXEL_RATIO;
-                    y *= PIXEL_RATIO;
-                    this.scale(-event.deltaY / 10, x, y);
+            canvas = this._rasterize(name);
+            this.canvases[name] = canvas;
+            return canvas;
+        }
+
+        _rasterize(name) {
+            let canvas = document.createElement('canvas');
+            let context = canvas.getContext('2d');
+
+            context.fillStyle = "white";
+            context.font = this.font;
+            context.textBaseline = 'middle';
+            let textSize = context.measureText(name);
+            let textWidth = textSize.width;
+            let textHeight = THEME.EVENT_HEIGHT;
+            canvas.width = textWidth * PIXEL_RATIO;
+            canvas.height = textHeight;
+
+            context.fillStyle = "white";
+            context.font = this.font;
+            context.textBaseline = 'middle';
+            context.fillText(name, 0, canvas.height / 2);
+            return canvas;
+        }
+    }
+
+    class TraceCall {
+
+        constructor(name, shortName, stackDepth, start) {
+            this.name = name;
+            this.shortName = shortName;
+            this.stackDepth = stackDepth;
+            this.start = start;
+        }
+    }
+
+    class Rect {
+
+        constructor(left, top, width, height) {
+            this.left = left;
+            this.top = top;
+            this.width = width;
+            this.height = height;
+        }
+    }
+
+    class Transform {
+
+        constructor() {
+            this.matrix = mat3.create();
+            this.screenViewport = new Rect(0, 0, 0, 0);
+
+            this.inverse = mat3.create();
+            this.viewport = new Rect(0, 0, 0, 0);
+        }
+
+        applyTo(context) {
+            context.setTransform(this.matrix[0], this.matrix[1], this.matrix[3], this.matrix[4], this.matrix[6], this.matrix[7]);
+        }
+
+        setScreenViewport(screenViewport) {
+            this.screenViewport = screenViewport;
+            this._refresh();
+        }
+
+        getViewport() {
+            return this.viewport;
+        }
+
+        getScreenViewport() {
+            return this.screenViewport;
+        }
+
+        getScaleX() {
+            return this.matrix[0];
+        }
+
+        getScaleY() {
+            return this.matrix[4];
+        }
+
+        getTranslationX() {
+            return this.matrix[6];
+        }
+
+        getTranslationY() {
+            return this.matrix[7];
+        }
+
+        toScreenPosition(modelPosition) {
+            return vec2.transformMat3(vec2.create(), modelPosition, this.matrix);
+        }
+
+        toModelPosition(screenPosition) {
+            return vec2.transformMat3(vec2.create(), screenPosition, this.inverse);
+        }
+
+        _scroll(dx, dy) {
+            let translation = vec2.fromValues(dx / this.getScaleX(), dy);
+            mat3.translate(this.matrix, this.matrix, translation);
+            // Enforce top bounds: no reason we should allow the user to scroll well beyond the top of the screen.
+            this.matrix[7] = Math.min(this.screenViewport.top / this.matrix[4], this.matrix[7]);
+            this._refresh();
+        }
+
+        _scale(scale, x, y) {
+            let K = 10;
+            let originalScreenPoint = vec2.fromValues(x, y);
+            let originalModelPoint = this.toModelPosition(originalScreenPoint);
+            scale = Math.sign(scale) * Math.min(K, Math.abs(scale)) / K + 1;
+            mat3.scale(this.matrix, this.matrix, vec2.fromValues(scale, 1));
+            let newScreenPoint = this.toScreenPosition(originalModelPoint);
+            let offsetX = originalScreenPoint[0] - newScreenPoint[0];
+            let offsetY = originalScreenPoint[1] - newScreenPoint[1];
+            mat3.translate(this.matrix, this.matrix, vec2.fromValues(offsetX / this.matrix[0], offsetY));
+            this._refresh();
+        }
+
+        onMouseWheel(event) {
+            if (event.ctrlKey) {
+                let boundingRect = canvas.getBoundingClientRect();
+                let x = event.clientX - boundingRect.left;
+                let y = event.clientY - boundingRect.top;
+                x *= PIXEL_RATIO;
+                y *= PIXEL_RATIO;
+                this._scale(-event.deltaY / 10, x, y);
+            } else {
+                this._scroll(-event.deltaX, -event.deltaY);
+            }
+        }
+
+        onKeyPress(keyCode) {
+            let SCROLL_JUMP = 200;
+            let SCALE_JUMP = 4;
+            if (keyCode === 65) { // a
+                this._scroll(SCROLL_JUMP, 0);
+            } else if (keyCode === 68) { // d
+                this._scroll(-SCROLL_JUMP, 0);
+            } else if (keyCode === 87) { // w
+                let boundingRect = canvas.getBoundingClientRect();
+                this._scale(SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
+            } else if (keyCode === 83) { // s
+                let boundingRect = canvas.getBoundingClientRect();
+                this._scale(-SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
+            } else {
+                return false;
+            }
+            return true;
+        }
+
+        _refresh() {
+            let screenLeftTop = vec2.fromValues(this.screenViewport.left, this.screenViewport.top);
+            let screenRightBottom = vec2.fromValues(screenLeftTop[0] + this.screenViewport.width, screenLeftTop[1] + this.screenViewport.height);
+
+            let inverse = mat3.invert(mat3.create(), this.matrix);
+            let viewportLeftTop = vec2.transformMat3(vec2.create(), screenLeftTop, inverse);
+            let viewportRightBottom = vec2.transformMat3(vec2.create(), screenRightBottom, inverse);
+
+            let left = viewportLeftTop[0];
+            let top = viewportLeftTop[1];
+            let width = viewportRightBottom[0] - left;
+            let height = viewportRightBottom[1] - top;
+
+            this.viewport = new Rect(left, top, width, height);
+            mat3.invert(this.inverse, this.matrix);
+        }
+    }
+
+    class LoadingController {
+
+        constructor() {
+            this.progressEl = document.getElementById('progress');
+        }
+
+        onStart(totalBytes) {
+            this.totalBytes = totalBytes;
+            this.progressEl.style.transform = `scale(0, 1)`;
+        }
+
+        onProgress(bytesRead) {
+            let scale = bytesRead / this.totalBytes;
+            this.progressEl.style.transform = `scale(${scale}, 1)`;
+        }
+
+        onDone() {
+            this.progressEl.style.transform = `scale(0, 1)`;
+        }
+    }
+
+    class CanvasRowData {
+
+        constructor() {
+            this.calls = [];
+        }
+
+        addCall(call) {
+            this.calls.push(call);
+        }
+
+        visitCalls(viewport, run) {
+            let leftIndex = this._getLeftIndex(viewport);
+            let rightIndex = this._getRightIndex(viewport);
+            for (let i = leftIndex; i <= rightIndex; i++) {
+                run(this.calls[i]);
+            }
+        }
+
+        _getLeftIndex(viewport) {
+            let leftIndex = CanvasRowData._binarySearch(this.calls, call => call.start, item => item >= viewport.left);
+            leftIndex = Math.max(leftIndex - 1, 0);
+            return leftIndex;
+        }
+
+        _getRightIndex(viewport) {
+            let rightIndex = CanvasRowData._binarySearch(this.calls, call => call.end, item => item >= viewport.left + viewport.width);
+            rightIndex = Math.min(rightIndex, this.calls.length - 1);
+            return rightIndex;
+        }
+
+        static _binarySearch(array, map, pred) {
+            let lo = -1, hi = array.length;
+            while (1 + lo !== hi) {
+                const mi = lo + ((hi - lo) >> 1);
+                if (pred(map(array[mi]))) {
+                    hi = mi;
                 } else {
-                    this.scroll(-event.deltaX, -event.deltaY);
+                    lo = mi;
                 }
             }
+            return hi;
+        }
+    }
 
-            onKeyPress(event) {
-                var SCROLL_JUMP = 200;
-                var SCALE_JUMP = 4;
-                if (event.keyCode == 65) { // a
-                    this.scroll(SCROLL_JUMP, 0);
-                } else if (event.keyCode == 68) { // d
-                    this.scroll(-SCROLL_JUMP, 0);
-                } else if (event.keyCode == 87) { // w
-                    var boundingRect = canvas.getBoundingClientRect();
-                    this.scale(SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
-                } else if (event.keyCode == 83) { // s
-                    var boundingRect = canvas.getBoundingClientRect();
-                    this.scale(-SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
-                } else {
-                    return false;
+    class CanvasZoomData {
+
+        constructor() {
+            this.rows = [];
+        }
+
+        addCall(call) {
+            while (this.rows.length < call.stackDepth) {
+                this.rows.push(new CanvasRowData());
+            }
+            this.rows[call.stackDepth - 1].addCall(call);
+        }
+
+        visitCalls(viewport, run) {
+            let stackDepth = 1;
+            for (let row of this.rows) {
+                let rowTop = CanvasTraceData.getRowTop(stackDepth++);
+                let rowBottom = rowTop + CanvasTraceData.getRowHeight();
+                if (rowTop < viewport.top + viewport.height && rowBottom > viewport.top) {
+                    row.visitCalls(viewport, run);
                 }
-                return true;
             }
         }
+    }
 
-        let canvas = document.getElementById("canvas");
-        let fileElement = document.getElementById('file');
+    class CanvasTraceData {
 
-        let matrix = mat3.create();
-        let gestureHandler = new GestureHandler();
-        let renderer = new Renderer(canvas);
-
-        var PIXEL_RATIO = (function () {
-            var ctx = canvas.getContext("2d"),
-                dpr = window.devicePixelRatio || 1,
-                bsr = ctx.webkitBackingStorePixelRatio ||
-                      ctx.mozBackingStorePixelRatio ||
-                      ctx.msBackingStorePixelRatio ||
-                      ctx.oBackingStorePixelRatio ||
-                      ctx.backingStorePixelRatio || 1;
-
-            return dpr / bsr;
-        })();
-        let theme = new Theme();
-        let TOP_OF_MAIN_VIEW = theme.AXIS_HEIGHT;
-
-        function resizeCanvas() {
-            canvas.width = canvas.getBoundingClientRect().width * PIXEL_RATIO;
-            canvas.height = canvas.getBoundingClientRect().height * PIXEL_RATIO;
+        constructor() {
+            this.clear();
         }
-        resizeCanvas();
 
-        function loadTestData() {
-            let count = 0;
-            let width = canvas.width * 1000;
-            let traceData = new TraceData();
-            let colCount = 10;
-            for (let row = 1; row < 8; row++) {
-                let colWidth = width / colCount;
-                let padding = colWidth / 10;
-                for (let col = 0; col < colCount; col++) {
-                    let start = col * colWidth;
-                    let end = start + colWidth;
-                    count++;
-                    traceData.addEvent("fakename", start, end - padding, row);
+        addCall(call) {
+            for (let zoomData of this.zoomDatas) {
+                if (call.end - call.start >= zoomData.minCallDuration) {
+                    zoomData.addCall(call);
                 }
-                colCount *= 10;
             }
-            console.log(count);
-            renderer.setTraceData(traceData);
         }
-        // loadTestData();
 
-        function onTraceBytes(bytes, inlined) {
-            let progressEl = document.getElementById('progress');
-            let traceData = new TraceData();
-            let loader = new TraceDataLoader(bytes);
+        clear() {
+            this.zoomDatas = [];
+            this.zoomCount = 10;
 
-            if (!inlined) {
-                let dataEl = document.getElementById("data");
-                dataEl.innerHTML = new TextDecoder().decode(bytes);
+            let viewportWidth = 1000;
+            let maxCallsPerRow = 10000;
+            let zoomFactor = 10;
+
+            for (let i = 0; i < this.zoomCount; i++) {
+                let zoomData = new CanvasZoomData();
+                zoomData.minCallDuration = viewportWidth / maxCallsPerRow;
+                zoomData.viewportWidth = viewportWidth;
+                this.zoomDatas.push(zoomData);
+
+                viewportWidth *= zoomFactor;
+            }
+        }
+
+        visitCalls(viewport, run) {
+            this._getZoomData(viewport).visitCalls(viewport, run);
+        }
+
+        _getZoomData(viewport) {
+            for (let zoomData of this.zoomDatas) {
+                if (viewport.width < zoomData.viewportWidth) {
+                    return zoomData;
+                }
+            }
+            return this.zoomDatas[this.zoomDatas.length - 1];
+        }
+
+        static getRowTop(stackDepth) {
+            return (stackDepth - 1) * CanvasTraceData.getRowHeight();
+        }
+
+        static getRowHeight() {
+            return THEME.EVENT_HEIGHT;
+        }
+    }
+
+    class CanvasTraceRenderer {
+
+        constructor(canvas, transform) {
+            this.canvas = canvas;
+            this.transform = transform;
+            this.context = canvas.getContext('2d');
+            this.data = new CanvasTraceData();
+            this.textPool = new TextPool();
+        }
+
+        clear() {
+            this.data.clear();
+        }
+
+        addCall(call) {
+            this.data.addCall(call);
+        }
+
+        render() {
+            this.context.setTransform(1, 0, 0, 1, 0, 0);
+            this.context.fillStyle = "black";
+            this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.transform.applyTo(this.context);
+
+            let viewport = this.transform.getViewport();
+            this.data.visitCalls(viewport, call => {
+                this._renderCall(viewport, call);
+            });
+            // this._debugViewport();
+        }
+
+        _debugViewport() {
+            let viewport = this.transform.getViewport();
+            this.context.strokeStyle = "red";
+            this.context.strokeRect(viewport.left, viewport.top, viewport.width, viewport.height);
+        }
+
+        _renderCall(viewport, call) {
+            let left = call.start;
+            let height = CanvasTraceData.getRowHeight();
+            let top = CanvasTraceData.getRowTop(call.stackDepth);
+            let width = call.end - call.start;
+
+            CanvasTraceRenderer._ensureBackgroundColor(call);
+            this.context.fillStyle = call.backgroundColor;
+            this.context.fillRect(left, top, width, height);
+
+            let scale = this.transform.getScaleX();
+            let cellScreenWidth = scale * width;
+            if (cellScreenWidth < 25) {
+                return;
             }
 
-            progressEl.max = loader.totalBytes;
-            progressEl.classList.add("notransition");
-            progressEl.style.opacity = "1";
-            progressEl.style.transform = "scale(0)";
-            progressEl.classList.remove("notransition");
-
-            loader.onProgress = bytesRead => {
-                let scale = bytesRead / loader.totalBytes;
-                progressEl.style.transform = `scale(${scale}, 1)`;
+            if (call.textCanvas == null) {
+                call.textCanvas = this.textPool.getOrRasterize(call.shortName);
             }
-            loader.onDone = traceData => {
-                let end = Date.now();
-                console.log(end - start);
-                renderer.setTraceData(traceData)
-                progressEl.style.opacity = "0";
-            };
 
-            let start = Date.now();
-            loader.loadTraceData();
+            let nameModelHeight = call.textCanvas.height;
+            let nameModelWidth = Math.min(width, call.textCanvas.width / PIXEL_RATIO / scale);
+
+            // Preferred name position - centered on screen with slight offset.
+            let nameModelLeft = viewport.left + viewport.width / 2 - 300;
+
+            // Ensure name within left bounds.
+            nameModelLeft = Math.max(left, nameModelLeft);
+            let nameModelRight = nameModelLeft + nameModelWidth;
+
+            // Ensure name within right bounds.
+            nameModelRight = Math.min(left + width, nameModelRight);
+            nameModelLeft = nameModelRight - nameModelWidth;
+
+            // let nameModelLeft = this.left;
+            // noinspection UnnecessaryLocalVariableJS
+            let nameModelTop = top;
+
+            let nameModelPosition = vec2.fromValues(nameModelLeft, nameModelTop);
+            let nameScreenPosition = this.transform.toScreenPosition(nameModelPosition);
+            let nameScreenWidth = nameModelWidth * scale;
+
+            this.context.save();
+            this.context.setTransform(1, 0, 0, 1, 0, 0);
+            this.context.drawImage(
+                call.textCanvas,
+                0, 0, nameScreenWidth, nameModelHeight,
+                nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
+            this.context.restore();
         }
 
-        function loadInlinedData() {
-            let dataEl = document.getElementById("data");
-            let bytes = new TextEncoder().encode(dataEl.innerHTML);
-            onTraceBytes(bytes, true);
+        static _ensureBackgroundColor(call) {
+            if (call.backgroundColor) {
+                return;
+            }
+
+            call.backgroundColor = CanvasTraceRenderer._getBackgroundColor(call);
         }
 
-        function initializeViewPort() {
-            matrix[7] = TOP_OF_MAIN_VIEW / matrix[4];
-            // TODO: we can adjust the starting size of the screen by mutating matrix[0].
+        static _getBackgroundColor(call) {
+            let hash = CanvasTraceRenderer._hash(call.shortName);
+            let h = hash % THEME.COLOR_PALETTE.length;
+            return THEME.COLOR_PALETTE[h];
         }
 
-        loadInlinedData();
-        scroll(0, 0);
-        renderer.draw();
-        initializeViewPort();
+        static _hash(str) {
+            let hash = 5381;
+            let i = str.length;
+            while (i) {
+                hash = (hash * 33) ^ str.charCodeAt(--i);
+            }
+            return hash >>> 0;
+        }
+    }
 
-        document.getElementById('file').addEventListener('change', event => {
-            let file = event.target.files[0];
+    class AxisRenderer {
+
+        constructor(canvas, transform) {
+            this.canvas = canvas;
+            this.transform = transform;
+            this.context = canvas.getContext("2d");
+        }
+
+        render() {
+            this.transform.applyTo(this.context);
+            // Undo the y translation. We always want the y position to be fixed in screen space. This keeps the axis at the top of the screen.
+            this.context.translate(0, -this.transform.getTranslationY() / this.transform.getScaleY());
+
+            this.renderAxisBackground();
+            this.renderTickMarks();
+        }
+
+        renderTickMarks() {
+            let viewport = this.transform.getViewport();
+
+            // Goal of the below calculation: we want to have between 5 to 10 different markers on the screen a time.
+            // Allowing each division to decrease in size by a factor of 2 before resizing the division achieves about this.
+            // Future enhancements: we'll want to modify the math bere by some constants that will cause the numbers to look a
+            // bit nicer. For example, we'll want 250ms to be one of the divisions.
+            let divisionFactor = Math.log(viewport.width / 5) / Math.log(2);
+            divisionFactor = Math.round(divisionFactor);
+            let divisionSize = Math.pow(2, divisionFactor);
+
+            let leftViewPortModelCoordinate = viewport.left;
+            let firstMajorDivisionOnScreen = Math.floor(leftViewPortModelCoordinate / divisionSize);
+            this.context.lineWidth = THEME.AXIS_LINE_STROKE_WIDTH / this.transform.getScaleX();
+            for (let majorDivision = firstMajorDivisionOnScreen; majorDivision < firstMajorDivisionOnScreen + 10; majorDivision++) {
+                // note we can't allow the multiplication to affect this.
+                this.context.beginPath();
+                this.context.moveTo(majorDivision * divisionSize, 0);
+                this.context.lineTo(majorDivision * divisionSize, THEME.AXIS_HEIGHT);
+                this.context.stroke();
+                this.context.closePath();
+
+                for (let minorDivision = 0; minorDivision < 5; minorDivision++) {
+                    this.context.beginPath();
+                    this.context.moveTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 0);
+                    this.context.lineTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 1 / 3 * THEME.AXIS_HEIGHT);
+                    this.context.stroke();
+                    this.context.closePath();
+                }
+
+                this.context.fillStyle = THEME.AXIS_LINE_COLOR;
+                this.context.save();
+                this.context.textBaseline = 'middle';
+                this.context.translate(majorDivision * divisionSize, THEME.AXIS_HEIGHT / 2);
+                this.context.scale(1 / this.transform.getScaleX(), 1);
+                this.context.font = '24px Roboto';
+                this.context.fillText("  " + AxisRenderer.formatTime(majorDivision * divisionSize, divisionSize), 0, 0);
+                this.context.restore();
+            }
+
+            this.context.closePath();
+        }
+
+        renderAxisBackground() {
+            let viewport = this.transform.getViewport();
+
+            this.context.fillStyle = THEME.AXIS_BACKGROUND_COLOR;
+            this.context.fillRect(viewport.left, 0, viewport.width, THEME.AXIS_HEIGHT);
+            this.context.strokeStyle = THEME.AXIS_LINE_COLOR;
+            this.context.lineWidth = THEME.AXIS_LINE_STROKE_WIDTH;
+
+            // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
+            this.context.save();
+            this.context.resetTransform();
+
+            let screenViewport = this.transform.getScreenViewport();
+            this.context.beginPath();
+            this.context.moveTo(screenViewport.left, THEME.AXIS_HEIGHT);
+            this.context.lineTo(screenViewport.left + screenViewport.width, THEME.AXIS_HEIGHT);
+            this.context.stroke();
+            this.context.restore();
+        }
+
+        static formatTime(time, divisionSize) {
+            // TODO: this needs to be improved. For now we just show everything in ns.
+            return Math.round(time) + " ns"
+        }
+    }
+
+    class Controller {
+
+        constructor() {
+            let canvas = document.getElementById('canvas');
+            let axisCanvas = document.getElementById('axisCanvas');
+            this.transform = new Transform();
+            this.loadingController = new LoadingController();
+            this.canvasTraceRenderer = new CanvasTraceRenderer(canvas, this.transform);
+            this.axisRenderer = new AxisRenderer(axisCanvas, this.transform);
+        }
+
+        onFileChange(file) {
+            this.canvasTraceRenderer.clear();
             let fileReader = new FileReader();
             fileReader.onload = e => {
                 let bytes = new Uint8Array(e.target.result);
-                onTraceBytes(bytes, false);
-                initializeViewPort();
+                let traceDataLoader = new TraceDataLoader(bytes);
+                traceDataLoader.onPop = this.canvasTraceRenderer.addCall.bind(this.canvasTraceRenderer);
+                traceDataLoader.onProgress = this.loadingController.onProgress.bind(this.loadingController);
+                traceDataLoader.onDone = () => {
+                    this._refreshCanvas();
+                    this.loadingController.onDone();
+                };
+                this.loadingController.onStart(bytes.length);
+                traceDataLoader.load();
             };
             fileReader.readAsArrayBuffer(file);
-        }, false);
-        document.getElementById('canvas').addEventListener('mousewheel', event => {
+        }
+
+        onKeyPress(keycode) {
+            if (this.transform.onKeyPress(keycode)) {
+                this._refreshCanvas();
+                return true;
+            }
+            return false
+        }
+
+        onMouseWheel(event) {
+            this.transform.onMouseWheel(event);
+            this._refreshCanvas();
+        }
+
+        onCanvasResize(bounds) {
+            this.transform.setScreenViewport(bounds);
+            this._refreshCanvas();
+        }
+
+        _refreshCanvas() {
+            this.canvasTraceRenderer.render();
+            this.axisRenderer.render();
+        }
+    }
+
+    let controller = new Controller();
+
+    function resizeCanvas() {
+        let resize = (canvas) => {
+            canvas.width = canvas.getBoundingClientRect().width * PIXEL_RATIO;
+            canvas.height = canvas.getBoundingClientRect().height * PIXEL_RATIO;
+        };
+        let canvas = document.getElementById('canvas');
+        resize(canvas);
+        resize(document.getElementById('axisCanvas'));
+        controller.onCanvasResize(new Rect(0, 0, canvas.width, canvas.height));
+    }
+
+    resizeCanvas();
+
+    document.getElementById('file').addEventListener('change', event => {
+        let file = event.target.files[0];
+        controller.onFileChange(file);
+    }, false);
+
+    document.getElementById('canvas').addEventListener('onresize', () => {
+        resizeCanvas();
+    });
+
+    document.getElementById('canvas').addEventListener('mousewheel', event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        controller.onMouseWheel(event);
+    });
+
+    document.addEventListener('keydown', event => {
+        if (controller.onKeyPress(event)) {
             event.preventDefault();
             event.stopImmediatePropagation();
-            gestureHandler.onMouseWheel(event)
-            renderer.draw();
-        });
-        document.addEventListener('keydown', event => {
-            if (gestureHandler.onKeyPress(event)) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                renderer.draw();
-            }
-        }, false);
-    </script>
+        }
+    }, false);
+</script>
+
 </body>
 </html>
