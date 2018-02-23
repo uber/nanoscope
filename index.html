@@ -44,6 +44,19 @@
             /*transition-property: transform;*/
             background-color: green;
         }
+
+        .searchResultRow {
+            font-family: 'Roboto', sans-serif;
+            font-size: 12px;
+            padding-left: 10px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            cursor: pointer;
+        }
+
+        .searchResultRow:hover {
+            background-color: darkgray;
+        }
     </style>
 </head>
 <body>
@@ -51,6 +64,8 @@
     <div class="header">
         <div id="progress" class="progress"></div>
         <input type="file" id="file" name="file">
+        <input type="text" id="search" name="search">
+        <div id="searchResults" class="searchResults"></div>
     </div>
     <div class="content">
         <canvas class="axisCanvas" id="axisCanvas"></canvas>
@@ -115,6 +130,7 @@
             };
             this.onPop = () => {
             };
+            this.methodRegistry = new MethodRegistry();
             this.callStack = [];
             this.firstTimestamp = -1;
             this.timestamp = -1;
@@ -137,7 +153,7 @@
             this.loadWithDeadline(this.createDeadline());
             if (this.done) {
                 this.onProgress(this.totalBytes);
-                this.onDone();
+                this.onDone(this.methodRegistry);
             } else {
                 this.onProgress(this.bytesRead);
                 requestAnimationFrame(this.loop.bind(this));
@@ -191,6 +207,7 @@
         pop() {
             let call = this.callStack.pop();
             call.end = this.timestamp;
+            this.methodRegistry.addCall(call);
             this.onPop(call);
         }
 
@@ -286,6 +303,64 @@
         }
     }
 
+    class TraceMethod {
+
+        constructor(callPrototype) {
+            this.name = callPrototype.name;
+            this.shortName = callPrototype.shortName;
+            this.calls = [];
+        }
+
+        getCallAt(index) {
+            return this.calls[index];
+        }
+
+        addCall(call) {
+            this.calls.push(call);
+        }
+    }
+
+    class MethodRegistry {
+
+        constructor() {
+            this.methods = {};
+            this.nameSet = new Set();
+            this.data = "\"";
+        }
+
+        addCall(call) {
+            let method = this.methods[call.name];
+            if (!method) {
+                method = new TraceMethod(call);
+                this.methods[call.name] = method;
+                this.data += call.name;
+                this.data += "\"";
+            }
+            method.addCall(call);
+        }
+
+        search(query, limit = 10) {
+            if (query.length === 0) {
+                return [];
+            }
+            let rx = new RegExp('"([^"]*' + query + '[^"]*)"', 'gi');
+            let i = 0, results = [], result;
+            while (result = rx.exec(this.data)) {
+                if (i++ > limit) {
+                    break;
+                }
+                let name = result[1];
+                results.push(this.methods[name]);
+            }
+
+            return results;
+        }
+
+        getMethod(name) {
+            return this.methods[name];
+        }
+    }
+
     class Rect {
 
         constructor(left, top, width, height) {
@@ -327,8 +402,16 @@
             return this.matrix[0];
         }
 
+        setScaleX(scale) {
+            this.matrix[0] = scale;
+        }
+
         getScaleY() {
             return this.matrix[4];
+        }
+
+        setScaleY(scale) {
+            this.matrix[4] = scale;
         }
 
         getTranslationX() {
@@ -345,6 +428,13 @@
 
         toModelPosition(screenPosition) {
             return vec2.transformMat3(vec2.create(), screenPosition, this.inverse);
+        }
+
+        focus(left, top, width) {
+            let scale = this.screenViewport.width / width;
+            mat3.fromScaling(this.matrix, vec2.fromValues(scale, 1));
+            mat3.translate(this.matrix, this.matrix, vec2.fromValues(-left, -top));
+            this._refresh();
         }
 
         _scroll(dx, dy) {
@@ -593,6 +683,13 @@
             // this._debugViewport();
         }
 
+        focus(call) {
+            let left = call.start;
+            let top = CanvasTraceData.getRowTop(call.stackDepth);
+            let width = call.end - call.start;
+            this.transform.focus(left, top, width);
+        }
+
         _debugViewport() {
             let viewport = this.transform.getViewport();
             this.context.strokeStyle = "red";
@@ -760,6 +857,45 @@
         }
     }
 
+    class SearchController {
+
+        constructor() {
+            this.methodRegistry = new MethodRegistry();
+            this.resultsEl = document.getElementById('searchResults');
+            this.onSelected = () => {
+            };
+        }
+
+        onQuery(query) {
+            this.clearResults();
+            let methods = this.methodRegistry.search(query, 10);
+            for (let method of methods) {
+                this.resultsEl.appendChild(this.createResultEl(method));
+            }
+        }
+
+        setMethodRegistry(methodRegistry) {
+            this.methodRegistry = methodRegistry;
+        }
+
+        clearResults() {
+            while (this.resultsEl.firstChild) {
+                this.resultsEl.removeChild(this.resultsEl.firstChild);
+            }
+        }
+
+        createResultEl(method) {
+            let resultEl = document.createElement('div');
+            resultEl.innerText = method.name;
+            resultEl.classList.add('searchResultRow');
+            resultEl.addEventListener('click', () => {
+                this.clearResults();
+                this.onSelected(method);
+            });
+            return resultEl;
+        }
+    }
+
     class Controller {
 
         constructor() {
@@ -767,8 +903,19 @@
             let axisCanvas = document.getElementById('axisCanvas');
             this.transform = new Transform();
             this.loadingController = new LoadingController();
+            this.searchController = new SearchController();
             this.canvasTraceRenderer = new CanvasTraceRenderer(canvas, this.transform);
             this.axisRenderer = new AxisRenderer(axisCanvas, this.transform);
+
+            this.searchController.onSelected = method => {
+                this.selectMethod(method);
+            }
+        }
+
+        selectMethod(method) {
+            let firstCall = method.getCallAt(0);
+            this.canvasTraceRenderer.focus(firstCall);
+            this._refreshCanvas();
         }
 
         onFileChange(file) {
@@ -777,11 +924,14 @@
             fileReader.onload = e => {
                 let bytes = new Uint8Array(e.target.result);
                 let traceDataLoader = new TraceDataLoader(bytes);
-                traceDataLoader.onPop = this.canvasTraceRenderer.addCall.bind(this.canvasTraceRenderer);
+                traceDataLoader.onPop = call => {
+                    this.canvasTraceRenderer.addCall(call);
+                };
                 traceDataLoader.onProgress = this.loadingController.onProgress.bind(this.loadingController);
-                traceDataLoader.onDone = () => {
-                    this._refreshCanvas();
+                traceDataLoader.onDone = (methodRegistry) => {
+                    this.searchController.setMethodRegistry(methodRegistry);
                     this.loadingController.onDone();
+                    this._refreshCanvas();
                 };
                 this.loadingController.onStart(bytes.length);
                 traceDataLoader.load();
@@ -805,6 +955,10 @@
         onCanvasResize(bounds) {
             this.transform.setScreenViewport(bounds);
             this._refreshCanvas();
+        }
+
+        onQuery(query) {
+            this.searchController.onQuery(query);
         }
 
         _refreshCanvas() {
@@ -841,6 +995,10 @@
         event.preventDefault();
         event.stopImmediatePropagation();
         controller.onMouseWheel(event);
+    });
+
+    document.getElementById('search').addEventListener('keyup', event => {
+        controller.onQuery(event.srcElement.value);
     });
 
     document.addEventListener('keydown', event => {
