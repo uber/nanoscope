@@ -10,8 +10,9 @@
 
         .main {
             display: grid;
+            min-height: 100vh;
             grid-template-columns: 1fr;
-            grid-template-rows: min-content 1fr;
+            grid-template-rows: min-content 1fr min-content;
         }
 
         .header {
@@ -24,14 +25,24 @@
             grid-column: 1;
         }
 
+        .footer {
+            grid-row: 3;
+            grid-column: 1;
+        }
+
         .axisCanvas {
             height: 30px;
-            width: 100vw;
+            width: 100%;
+        }
+
+        .minimapCanvas {
+            height: 15px;
+            width: 100%;
         }
 
         .canvas {
-            height: 100vh;
-            width: 100vw;
+            height: 100%;
+            width: 100%;
         }
 
         .progress {
@@ -66,10 +77,13 @@
         <input type="file" id="file" name="file">
         <input type="text" id="search" name="search">
         <div id="searchResults" class="searchResults"></div>
+        <canvas class="axisCanvas" id="axisCanvas"></canvas>
     </div>
     <div class="content">
-        <canvas class="axisCanvas" id="axisCanvas"></canvas>
         <canvas class="canvas" id="canvas"></canvas>
+    </div>
+    <div class="footer">
+        <canvas class="minimapCanvas" id="minimapCanvas"></canvas>
     </div>
 </div>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js"></script>
@@ -326,6 +340,9 @@
             this.methods = {};
             this.nameSet = new Set();
             this.data = "\"";
+            this.minTimestamp = 0;
+            this.maxTimestamp = 0;
+            this.maxStackDepth = 1;
         }
 
         addCall(call) {
@@ -337,6 +354,10 @@
                 this.data += "\"";
             }
             method.addCall(call);
+
+            this.minTimestamp = Math.min(this.minTimestamp, call.start);
+            this.maxTimestamp = Math.max(this.maxTimestamp, call.end);
+            this.maxStackDepth = Math.max(this.maxStackDepth, call.stackDepth);
         }
 
         search(query, limit = 10) {
@@ -771,6 +792,53 @@
         }
     }
 
+    class MinimapRenderer {
+
+        constructor(canvas, transform) {
+            this.canvas = canvas;
+            this.transform = transform;
+            this.context = canvas.getContext('2d');
+            this.bounds = new Rect(0, 0, 1, 1);
+            this.methodRegistry = new MethodRegistry();
+            this.rowHeight = 10;
+        }
+
+        render() {
+            this.context.fillStyle = "grey";
+            this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+            let viewportBox = this.getViewportBox();
+            console.log(viewportBox);
+            this.context.fillStyle = "darkgrey";
+            this.context.fillRect(viewportBox.left, 0, viewportBox.width, canvas.height);
+        }
+
+        setMethodRegistry(methodRegistry) {
+            this.methodRegistry = methodRegistry;
+        }
+
+        getViewportBox() {
+            let viewport = this.transform.getViewport();
+
+            let scaleX = canvas.width / (this.methodRegistry.maxTimestamp - this.methodRegistry.minTimestamp);
+            let scaleY = this.rowHeight / CanvasTraceData.getRowHeight();
+            let matrix = mat3.fromScaling(mat3.create(), vec2.fromValues(scaleX, scaleY));
+
+            let leftTop = vec2.fromValues(viewport.left, viewport.top);
+            let rightBottom = vec2.fromValues(viewport.left + viewport.width, viewport.top + viewport.height);
+
+            let screenLeftTop = vec2.transformMat3(vec2.create(), leftTop, matrix);
+            let screenRightBottom = vec2.transformMat3(vec2.create(), rightBottom, matrix);
+
+            let screenLeft = screenLeftTop[0];
+            let screenTop = screenLeftTop[1];
+            let screenWidth = screenRightBottom[0] - screenLeft;
+            let screenHeight = screenRightBottom[1] - screenTop;
+
+            return new Rect(screenLeft, screenTop, screenWidth, screenHeight);
+        }
+    }
+
     class AxisRenderer {
 
         constructor(canvas, transform) {
@@ -901,11 +969,13 @@
         constructor() {
             let canvas = document.getElementById('canvas');
             let axisCanvas = document.getElementById('axisCanvas');
+            let minimapCanvas = document.getElementById('minimapCanvas');
             this.transform = new Transform();
             this.loadingController = new LoadingController();
             this.searchController = new SearchController();
             this.canvasTraceRenderer = new CanvasTraceRenderer(canvas, this.transform);
             this.axisRenderer = new AxisRenderer(axisCanvas, this.transform);
+            this.minimapRenderer = new MinimapRenderer(minimapCanvas, this.transform);
 
             this.searchController.onSelected = method => {
                 this.selectMethod(method);
@@ -930,6 +1000,7 @@
                 traceDataLoader.onProgress = this.loadingController.onProgress.bind(this.loadingController);
                 traceDataLoader.onDone = (methodRegistry) => {
                     this.searchController.setMethodRegistry(methodRegistry);
+                    this.minimapRenderer.setMethodRegistry(methodRegistry);
                     this.loadingController.onDone();
                     this._refreshCanvas();
                 };
@@ -964,6 +1035,7 @@
         _refreshCanvas() {
             this.canvasTraceRenderer.render();
             this.axisRenderer.render();
+            this.minimapRenderer.render();
         }
     }
 
@@ -977,6 +1049,7 @@
         let canvas = document.getElementById('canvas');
         resize(canvas);
         resize(document.getElementById('axisCanvas'));
+        resize(document.getElementById('minimapCanvas'));
         controller.onCanvasResize(new Rect(0, 0, canvas.width, canvas.height));
     }
 
