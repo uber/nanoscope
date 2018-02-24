@@ -298,6 +298,7 @@
                 '#717171',
             ],
         "MARGIN_AROUND_METHODS_AT_START": 0.10,
+        "SELECTED_CROSSHAIR_COLOR": "#FFFFFFDD",
     };
 
     // Processes raw trace data bytes. Consume processed data by registering callbacks:
@@ -968,6 +969,7 @@
             this.context = canvas.getContext('2d');
             this.data = new CanvasTraceData();
             this.textPool = new TextPool();
+            this.selectedCall = null;
         }
 
         clear() {
@@ -988,6 +990,7 @@
             this.data.visitCalls(viewport, call => {
                 this._renderCall(viewport, call);
             });
+            this._renderSelectedCrosshairs();
             // this._debugViewport();
         }
 
@@ -1003,8 +1006,31 @@
             this.transform.focus(left, top, width);
         }
 
+        selectCall(call) {
+            this.selectedCall = call;
+        }
+
         getCallAtCoordOrNull(x, y) {
             return this.data.getCallAtCoordOrNull(x, y);
+        }
+
+        _renderSelectedCrosshairs() {
+            if (!this.selectedCall) {
+                return;
+            }
+
+            let left = this.selectedCall.start;
+            let top = CanvasTraceData.getRowTop(this.selectedCall.stackDepth);
+
+            let screenLeftTop = this.transform.toScreenPosition(vec2.fromValues(left, top));
+            let screenLeft = screenLeftTop[0];
+            let screenTop = screenLeftTop[1];
+            let screenViewport = this.transform.screenViewport;
+
+            this.context.setTransform(1, 0, 0, 1, 0, 0);
+            this.context.strokeStyle = THEME.SELECTED_CROSSHAIR_COLOR;
+            this.context.strokeRect(screenLeft, screenViewport.top, 1, screenViewport.height);
+            this.context.strokeRect(screenViewport.left, screenTop, screenViewport.width, 1);
         }
 
         // Focus on a particular region. With some margin on both sides.
@@ -1210,7 +1236,7 @@
 
             // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
             this.context.save();
-            this.context.resetTransform();
+            this.context.setTransform(1, 0, 0, 1, 0, 0);
 
             let screenViewport = this.transform.getScreenViewport();
             this.context.beginPath();
@@ -1283,9 +1309,12 @@
 
             this.detailsController.onFocus = call => {
                 this._focusCall(call);
+                this._refreshCanvas();
             };
             this.searchController.onSelected = method => {
-                this._selectMethod(method);
+                let firstCall = method.getCallAt(0);
+                this._selectCall(firstCall);
+                this._refreshCanvas();
             }
         }
 
@@ -1343,23 +1372,18 @@
             let call = this.canvasTraceRenderer.getCallAtCoordOrNull(modelCoordinate[0], modelCoordinate[1]);
             if (call !== null) {
                 this._selectCall(call);
+                this._refreshCanvas();
                 return true;
             }
             return false;
         }
 
-        _selectMethod(method) {
-            let firstCall = method.getCallAt(0);
-            this._focusCall(firstCall);
-            this._selectCall(firstCall);
-        }
-
         _focusCall(call) {
             this.canvasTraceRenderer.focus(call);
-            this._refreshCanvas();
         }
 
         _selectCall(call) {
+            this.canvasTraceRenderer.selectCall(call);
             this.detailsController.selectCall(call);
         }
 
