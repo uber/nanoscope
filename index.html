@@ -542,10 +542,12 @@
                 this._scroll(-SCROLL_JUMP, 0);
             } else if (keyCode === 87) { // w
                 let boundingRect = canvas.getBoundingClientRect();
-                this._scale(SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
+                this._scale(SCALE_JUMP, (boundingRect.left + boundingRect.right) / 2 * PIXEL_RATIO,
+                    boundingRect.top + boundingRect.height / 2 * PIXEL_RATIO);
             } else if (keyCode === 83) { // s
                 let boundingRect = canvas.getBoundingClientRect();
-                this._scale(-SCALE_JUMP, (boundingRect.left + boundingRect.width) / 2, boundingRect.top + boundingRect.height / 2);
+                this._scale(-SCALE_JUMP, (boundingRect.left + boundingRect.right) / 2 * PIXEL_RATIO,
+                    boundingRect.top + boundingRect.height / 2 * PIXEL_RATIO);
             } else {
                 return false;
             }
@@ -1174,6 +1176,9 @@
     });
 
     document.addEventListener('keydown', event => {
+        if (document.activeElement === document.getElementById('search')) {
+            return false;
+        }
         if (controller.onKeyPress(event.keyCode)) {
             event.preventDefault();
             event.stopImmediatePropagation();
