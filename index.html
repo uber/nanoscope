@@ -21,6 +21,7 @@
         }
 
         .content {
+            position: relative;
             grid-row: 2;
             grid-column: 1;
         }
@@ -43,6 +44,43 @@
         .canvas {
             height: 100%;
             width: 100%;
+        }
+
+        .details {
+            display: none;
+            grid-template-rows: 1fr;
+            grid-template-columns: min-content 1fr;
+            background-color: darkgray;
+            position: absolute;
+            margin: 10px;
+            padding: 10px;
+            bottom: 0;
+        }
+
+        .details-focus {
+            grid-row: 1;
+            grid-column: 1;
+            background:
+                    url(data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAADUAAAA3CAYAAACsLgJ7AAAAAXNSR0IArs4c6QAAA+dJREFUaAXtmj9vE0EQxQlCILlFQiJSClq3qZHdJIWREG2gJ18ApHRJiUJNg2j5ACAqKByJgooqnSWqCGigoUCAiOD9rFw8Hnn3fHe7tmP5SZOb2d15M/vn9vbOWbuUH12FQAocSUGy4Uo25hFxV+r+yBxqR85Oal5OyrYgZKtOLchElKaxmqnSIVqQBmsZ8miJc1uyJdmQbErWJQW+SPkoOZG8k7yV/JQsHFjGO5JXEhL8V0Fojx/+C3M79JTMsaRKR0Jt4YFvbrilyH1JKMEm5fDCP1N0FO2bJJT4QHVPJXcl3FM3JVfPrtiUU0+7EAf8xJkJdhXlj8Qn81dlLyRtSRXQHj/8PSdxiJcVBPCBsd9IqnbGJ4o/PJP4s3Wsq4B+hk5V9liSEvDBaztH3E7KIHBx0/p76IfKelRmALzw244RP+nm0XcBGMlcHRL1EPD7GSOPJIDcjhj6oyTM5SQsRR+78WDyhPcPVm7mabChRnuS9xKORr/PrtiUUz8N/OZBPo1OHvdFYEeKbbddksk11R9Kfkmsr9eppx3tYyCe3+45UtUGZzKbDM+TGG6o8oPE+pTptMcvBuJaHvKqhZa8/OGUUQuBEa/aoSJR/PAPgbhFW67kRX6VcU8elmhQwnDo2lvfaXT8YyC+5SG/yngmD0vCWS0Ebvqye8hyTdLxj20exLd+5DcRsV3EB2DXCuGBKmLLJ+Rny/GHJwQf3+d37sd3v/1za1zhNG3x2RpOv+PsuiY8TwLOPj75hXIfm1I7vV7n9SEEnkO+fR0bnhCIPxXn2lnDEJEtZ3lwsJwEHqy8LzUF/KFlDD9xShG7p7zzdV9g7O9Gb6LGeGLxx2JyTx2MlYyMh1LXR+ZQ/2psq36SEVuetm1MhycEmwttWKrPQ41D5a9VYdcwr+Ah7KnCtq2rwxMC8S0v+U1EbPmdOI/bzrbmSxlTrXfr5HT84QnBx/f5hfzGypfyRMHZaunOfkzb0p3S6dSOxN6cS/E+xUZy7Dp24d981Z/hBxY7W+h8O5gFsnyjKBLvS7EdO5XdKyozXeEnjo1LHsmwlN/9GJ2OhAOnHTlGMvXnMvj8DBGX+FmwK1bbqUJn82g3jIg/PAWnvRI3KwjgZ4wE2O756lO1c7THD3/bEXTiZO+QYgzR1V//bd0mNFA93xSa/j5FnJmCzaMvsZ1JpcOb9MeAqiPTk4N/QNftHDzwLQQ4eXCk4qzoD8FlHaQ9fvjHXoVUPR34RpEaLRFuS7YkG5JNybqkAG+sF+L/KIqEJ10PVGhnCzsrkkx31gxrkK86VWPQ5uKymqm5DHuNoLP4x+Ajl5e3XXVz8z/hZnJasj74OAAAAABJRU5ErkJggg==)
+                    no-repeat
+                    left center;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            background-size: cover;
+        }
+
+        .details-focus:hover {
+            opacity: .5;
+        }
+
+        .details-name {
+            grid-row: 1;
+            grid-column: 2;
+            font-family: 'Roboto', sans-serif;
+            font-size: 10px;
+            padding-left: 10px;
+            align-self: center;
         }
 
         .progress {
@@ -81,6 +119,10 @@
     </div>
     <div class="content">
         <canvas class="canvas" id="canvas"></canvas>
+        <div class="details" id="details">
+            <div class="details-focus"></div>
+            <div class="details-name"></div>
+        </div>
     </div>
     <div class="footer">
         <canvas class="minimapCanvas" id="minimapCanvas"></canvas>
@@ -550,6 +592,29 @@
         }
     }
 
+    // Handles displaying details of selected TraceCall.
+    class DetailsController {
+
+        constructor() {
+            this.el = document.getElementById('details');
+            this.nameEl = this.el.querySelector('.details-name');
+            this.focusEl = this.el.querySelector('.details-focus');
+            this.focusEl.addEventListener('click', () =>{
+                if (this.selectedCall) {
+                    this.onFocus(this.selectedCall);
+                }
+            });
+            this.onFocus = () => {};
+            this.selectedCall = null;
+        }
+
+        selectCall(call) {
+            this.selectedCall = call;
+            this.nameEl.innerText = call.name;
+            this.el.style.display = 'grid';
+        }
+    }
+
     // Represents a single row on the canvas.
     class CanvasRowData {
 
@@ -993,16 +1058,14 @@
             this.canvasTraceRenderer = new CanvasTraceRenderer(canvas, this.transform);
             this.axisRenderer = new AxisRenderer(axisCanvas, this.transform);
             this.minimapRenderer = new MinimapRenderer(minimapCanvas, this.transform);
+            this.detailsController = new DetailsController();
 
+            this.detailsController.onFocus = call => {
+                this._focusCall(call);
+            };
             this.searchController.onSelected = method => {
-                this.selectMethod(method);
+                this._selectMethod(method);
             }
-        }
-
-        selectMethod(method) {
-            let firstCall = method.getCallAt(0);
-            this.canvasTraceRenderer.focus(firstCall);
-            this._refreshCanvas();
         }
 
         onFileChange(file) {
@@ -1051,6 +1114,21 @@
 
         onQuery(query) {
             this.searchController.onQuery(query);
+        }
+
+        _selectMethod(method) {
+            let firstCall = method.getCallAt(0);
+            this._focusCall(firstCall);
+            this._selectCall(firstCall);
+        }
+
+        _focusCall(call) {
+            this.canvasTraceRenderer.focus(call);
+            this._refreshCanvas();
+        }
+
+        _selectCall(call) {
+            this.detailsController.selectCall(call);
         }
 
         _refreshCanvas() {
