@@ -164,7 +164,6 @@
                 '#202e4f',
                 '#4d7166',
                 '#83b8ab',
-                '#151918',
                 '#1b2b26'
             ],
         "MARGIN_AROUND_METHODS_AT_START": 0.10,
@@ -382,7 +381,7 @@
         }
     }
 
-    // Holds all TraceMethod information for a trace file.
+    // Holds all TraceMethod information for a trace file. Maps method names to calls.
     class MethodRegistry {
 
         constructor() {
@@ -520,6 +519,15 @@
             this._refresh();
         }
 
+        toModelPositionFromClick(event) {
+            let boundingRect = canvas.getBoundingClientRect();
+            let x = event.clientX - boundingRect.left;
+            let y = event.clientY - boundingRect.top;
+            x *= PIXEL_RATIO;
+            y *= PIXEL_RATIO;
+            return this.toModelPosition(vec2.fromValues(x, y));
+        }
+
         onMouseWheel(event) {
             if (event.ctrlKey) {
                 let boundingRect = canvas.getBoundingClientRect();
@@ -636,6 +644,15 @@
             }
         }
 
+        getCallAtCoordOrNull(x) {
+            let rightIndex = CanvasRowData._binarySearch(this.calls, call => call.end, item => item > x);
+            let call = this.calls[rightIndex];
+            if (call.start <= x && call.end >= x) {
+                return call;
+            }
+            return null;
+        }
+
         _getLeftIndex(viewport) {
             let leftIndex = CanvasRowData._binarySearch(this.calls, call => call.start, item => item >= viewport.left);
             leftIndex = Math.max(leftIndex - 1, 0);
@@ -686,6 +703,15 @@
                 }
             }
         }
+
+        getCallAtCoordOrNull(x, y) {
+            let rowIndex = CanvasTraceData.getRowIndex(y);
+            if (rowIndex >= this.rows.length) {
+                return null;
+            }
+            let row = this.rows[rowIndex];
+            return row.getCallAtCoordOrNull(x);
+        }
     }
 
     // Represents the trace data for all zoom levels.
@@ -721,6 +747,16 @@
             }
         }
 
+        getCallAtCoordOrNull(x, y) {
+            for (let i = 0; i < this.zoomCount; i++) {
+                let call = this.zoomDatas[i].getCallAtCoordOrNull(x, y);
+                if (call !== null) {
+                    return call;
+                }
+            }
+            return null;
+        }
+
         // Call run(call) for every on-screen TraceCall at the current zoom level.
         visitCalls(viewport, run) {
             this._getZoomData(viewport).visitCalls(viewport, run);
@@ -737,6 +773,10 @@
 
         static getRowTop(stackDepth) {
             return (stackDepth - 1) * CanvasTraceData.getRowHeight();
+        }
+
+        static getRowIndex(y) {
+            return Math.floor(y / CanvasTraceData.getRowHeight());
         }
 
         static getRowHeight() {
@@ -786,6 +826,10 @@
             let top = CanvasTraceData.getRowTop(call.stackDepth);
             let width = call.end - call.start;
             this.transform.focus(left, top, width);
+        }
+
+        getCallAtCoordOrNull(x, y) {
+            return this.data.getCallAtCoordOrNull(x, y);
         }
 
         // Focus on a particular region. With some margin on both sides.
@@ -1118,6 +1162,16 @@
             this.searchController.onQuery(query);
         }
 
+        onClick(event) {
+            let modelCoordinate = this.transform.toModelPositionFromClick(event);
+            let call = this.canvasTraceRenderer.getCallAtCoordOrNull(modelCoordinate[0], modelCoordinate[1]);
+            if (call !== null) {
+                this._focusCall(call);
+                return true;
+            }
+            return false;
+        }
+
         _selectMethod(method) {
             let firstCall = method.getCallAt(0);
             this._focusCall(firstCall);
@@ -1169,6 +1223,10 @@
         event.preventDefault();
         event.stopImmediatePropagation();
         controller.onMouseWheel(event);
+    });
+
+    document.getElementById('canvas').addEventListener('click', event => {
+        controller.onClick(event);
     });
 
     document.getElementById('search').addEventListener('keyup', event => {
