@@ -1302,7 +1302,7 @@
             let modelCoordinate = this.transform.toModelPositionFromClick(event);
             let call = this.canvasTraceRenderer.getCallAtCoordOrNull(modelCoordinate[0], modelCoordinate[1]);
             if (call !== null) {
-                this._focusCall(call);
+                this._selectCall(call);
                 return true;
             }
             return false;
