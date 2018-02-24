@@ -813,7 +813,6 @@
             this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
             let viewportBox = this.getViewportBox();
-            console.log(viewportBox);
             this.context.fillStyle = "darkgrey";
             this.context.fillRect(viewportBox.left, 0, viewportBox.width, canvas.height);
         }
@@ -1018,6 +1017,9 @@
         }
 
         onKeyPress(keycode) {
+            if (document.activeElement === document.getElementById('search')) {
+                return false;
+            }
             if (this.transform.onKeyPress(keycode)) {
                 this._refreshCanvas();
                 return true;
