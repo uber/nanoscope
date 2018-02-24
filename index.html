@@ -124,7 +124,8 @@
                 '#83b8ab',
                 '#151918',
                 '#1b2b26'
-            ]
+            ],
+        "MARGIN_AROUND_METHODS_AT_START": 0.10,
     };
 
     // Processes raw trace data bytes. Consume processed data by registering callbacks:
@@ -708,11 +709,21 @@
             // this._debugViewport();
         }
 
+        focusOnRegistry(methodRegistry) {
+            let duration = methodRegistry.maxTimestamp - methodRegistry.minTimestamp;
+            this._focusWithMargin(methodRegistry.minTimestamp, 0, duration, THEME.MARGIN_AROUND_METHODS_AT_START);
+        }
+
         focus(call) {
             let left = call.start;
             let top = CanvasTraceData.getRowTop(call.stackDepth);
             let width = call.end - call.start;
             this.transform.focus(left, top, width);
+        }
+
+        // Focus on a particular region. With some margin on both sides.
+        _focusWithMargin(left, top, width, marginPercent) {
+            this.transform.focus(left - width * marginPercent, 0, width * (1 + 2 * marginPercent));
         }
 
         _debugViewport() {
@@ -1007,6 +1018,7 @@
                 traceDataLoader.onDone = (methodRegistry) => {
                     this.searchController.setMethodRegistry(methodRegistry);
                     this.minimapRenderer.setMethodRegistry(methodRegistry);
+                    this.canvasTraceRenderer.focusOnRegistry(methodRegistry);
                     this.loadingController.onDone();
                     this._refreshCanvas();
                 };
