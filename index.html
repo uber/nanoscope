@@ -302,7 +302,7 @@
     };
 
     // Processes raw trace data bytes. Consume processed data by registering callbacks:
-    //     onProgress(bytesRead), onDone(methodRegistry), onPush(call), onPop(call)
+    //     onProgress(bytesRead), onDone(), onPush(call), onPop(call)
     class TraceDataProcessor {
 
         constructor(bytes) {
@@ -320,7 +320,6 @@
             };
             this.onPop = () => {
             };
-            this.methodRegistry = new MethodRegistry();
             this.callStack = [];
             this.firstTimestamp = -1;
             this.timestamp = -1;
@@ -343,7 +342,7 @@
             this.loadWithDeadline(this.createDeadline());
             if (this.done) {
                 this.onProgress(this.totalBytes);
-                this.onDone(this.methodRegistry);
+                this.onDone();
             } else {
                 this.onProgress(this.bytesRead);
                 requestAnimationFrame(this.loop.bind(this));
@@ -397,7 +396,6 @@
         pop() {
             let call = this.callStack.pop();
             call.end = this.timestamp;
-            this.methodRegistry.addCall(call);
             this.onPop(call);
         }
 
@@ -503,7 +501,12 @@
         constructor(callPrototype) {
             this.name = callPrototype.name;
             this.shortName = callPrototype.shortName;
+            // Total duration - Does not include recursive calls.
             this.totalDuration = 0;
+            // Total duration - Includes recursive calls.
+            this.totalRecursiveDuration = 0;
+            // Keeps track of the per-method call stack so we don't include recursive calls in this.totalDuration.
+            this.callStack = [];
             this.calls = [];
         }
 
@@ -511,9 +514,23 @@
             return this.calls[index];
         }
 
-        addCall(call) {
-            this.totalDuration += call.end - call.start;
+        pushCall(call) {
+            this.callStack.push(call);
             this.calls.push(call);
+        }
+
+        popCall(call) {
+            let popped = this.callStack.pop();
+            if (popped !== call) {
+                console.error("TraceMethod: Inconsistent popCall.");
+                return;
+            }
+
+            let callDuration = call.end - call.start;
+            this.totalRecursiveDuration += callDuration;
+            if (this.callStack.length === 0) {
+                this.totalDuration += callDuration;
+            }
         }
     }
 
@@ -528,7 +545,7 @@
             this.maxStackDepth = 1;
         }
 
-        addCall(call) {
+        pushCall(call) {
             let method = this.methods[call.name];
             if (!method) {
                 method = new TraceMethod(call);
@@ -537,11 +554,22 @@
                 this.data += "\"";
             }
             call.method = method;
-            method.addCall(call);
+
+            method.pushCall(call);
 
             this.minTimestamp = Math.min(this.minTimestamp, call.start);
-            this.maxTimestamp = Math.max(this.maxTimestamp, call.end);
             this.maxStackDepth = Math.max(this.maxStackDepth, call.stackDepth);
+        }
+
+        popCall(call) {
+            let method = this.methods[call.name];
+            if (!method) {
+                console.error("MethodRegistry: Unexpected popCall.");
+            }
+
+            method.popCall(call);
+
+            this.maxTimestamp = Math.max(this.maxTimestamp, call.end);
         }
 
         search(query, limit = 10) {
@@ -791,7 +819,7 @@
             let method = call.method;
             let methodTotalDuration = method.totalDuration;
             this.methodTotalDurationEl.innerText = DetailsController._format(methodTotalDuration / 1000);
-            this.methodAvgDurationEl.innerText = DetailsController._format(methodTotalDuration / method.calls.length / 1000);
+            this.methodAvgDurationEl.innerText = DetailsController._format(method.totalRecursiveDuration / method.calls.length / 1000);
             this.methodCallCountEl.innerText = method.calls.length.toString();
             this.methodPercentEl.innerText = DetailsController._format(100 * methodTotalDuration / totalTraceDuration) + '%';
         }
@@ -1324,11 +1352,16 @@
             fileReader.onload = e => {
                 let bytes = new Uint8Array(e.target.result);
                 let traceDataLoader = new TraceDataProcessor(bytes);
+                let methodRegistry = new MethodRegistry();
+                traceDataLoader.onPush = call => {
+                    methodRegistry.pushCall(call);
+                };
                 traceDataLoader.onPop = call => {
                     this.canvasTraceRenderer.addCall(call);
+                    methodRegistry.popCall(call);
                 };
                 traceDataLoader.onProgress = this.loadingController.onProgress.bind(this.loadingController);
-                traceDataLoader.onDone = (methodRegistry) => {
+                traceDataLoader.onDone = () => {
                     this.searchController.setMethodRegistry(methodRegistry);
                     this.minimapRenderer.setMethodRegistry(methodRegistry);
                     this.detailsController.setMethodRegistry(methodRegistry);
