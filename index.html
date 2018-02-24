@@ -127,7 +127,9 @@
             ]
     };
 
-    class TraceDataLoader {
+    // Processes raw trace data bytes. Consume processed data by registering callbacks:
+    //     onProgress(bytesRead), onDone(methodRegistry), onPush(call), onPop(call)
+    class TraceDataProcessor {
 
         constructor(bytes) {
             this.charZero = '0'.charCodeAt(0);
@@ -268,6 +270,7 @@
         }
     }
 
+    // Caches rasterized text.
     class TextPool {
 
         constructor() {
@@ -307,6 +310,7 @@
         }
     }
 
+    // Represents a single invocation of a method.
     class TraceCall {
 
         constructor(name, shortName, stackDepth, start) {
@@ -317,6 +321,7 @@
         }
     }
 
+    // Represents a method. Multiple TraceCalls can be associated with a single TraceMethod.
     class TraceMethod {
 
         constructor(callPrototype) {
@@ -334,11 +339,11 @@
         }
     }
 
+    // Holds all TraceMethod information for a trace file.
     class MethodRegistry {
 
         constructor() {
             this.methods = {};
-            this.nameSet = new Set();
             this.data = "\"";
             this.minTimestamp = 0;
             this.maxTimestamp = 0;
@@ -392,6 +397,7 @@
         }
     }
 
+    // Abstraction over underlying transformation matrix.
     class Transform {
 
         constructor() {
@@ -423,16 +429,8 @@
             return this.matrix[0];
         }
 
-        setScaleX(scale) {
-            this.matrix[0] = scale;
-        }
-
         getScaleY() {
             return this.matrix[4];
-        }
-
-        setScaleY(scale) {
-            this.matrix[4] = scale;
         }
 
         getTranslationX() {
@@ -529,6 +527,7 @@
         }
     }
 
+    // Handles displaying trace loading progress.
     class LoadingController {
 
         constructor() {
@@ -550,6 +549,7 @@
         }
     }
 
+    // Represents a single row on the canvas.
     class CanvasRowData {
 
         constructor() {
@@ -594,6 +594,7 @@
         }
     }
 
+    // Represents the trace data for a given canvas zoom level.
     class CanvasZoomData {
 
         constructor() {
@@ -619,6 +620,7 @@
         }
     }
 
+    // Represents the trace data for all zoom levels.
     class CanvasTraceData {
 
         constructor() {
@@ -651,6 +653,7 @@
             }
         }
 
+        // Call run(call) for every on-screen TraceCall at the current zoom level.
         visitCalls(viewport, run) {
             this._getZoomData(viewport).visitCalls(viewport, run);
         }
@@ -673,6 +676,7 @@
         }
     }
 
+    // Renders trace data to a canvas.
     class CanvasTraceRenderer {
 
         constructor(canvas, transform) {
@@ -792,6 +796,7 @@
         }
     }
 
+    // Renders the trace minimap.
     class MinimapRenderer {
 
         constructor(canvas, transform) {
@@ -925,6 +930,7 @@
         }
     }
 
+    // Handles search.
     class SearchController {
 
         constructor() {
@@ -964,6 +970,7 @@
         }
     }
 
+    // Top level controller. Currently all DOM input funnels through this class.
     class Controller {
 
         constructor() {
@@ -993,7 +1000,7 @@
             let fileReader = new FileReader();
             fileReader.onload = e => {
                 let bytes = new Uint8Array(e.target.result);
-                let traceDataLoader = new TraceDataLoader(bytes);
+                let traceDataLoader = new TraceDataProcessor(bytes);
                 traceDataLoader.onPop = call => {
                     this.canvasTraceRenderer.addCall(call);
                 };
@@ -1075,7 +1082,7 @@
     });
 
     document.addEventListener('keydown', event => {
-        if (controller.onKeyPress(event)) {
+        if (controller.onKeyPress(event.keyCode)) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }
