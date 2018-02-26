@@ -32,7 +32,7 @@
         }
 
         .axisCanvas {
-            height: 30px;
+            height: 20px;
             width: 100%;
         }
 
@@ -48,7 +48,7 @@
 
         .details {
             display: none;
-            background-color: darkgray;
+            background-color: #303030;
             position: absolute;
             margin: 10px;
             padding: 10px;
@@ -58,19 +58,26 @@
         .details-header {
             display: grid;
             grid-template-columns: 1fr min-content;
+            margin-bottom: 5px;
+            overflow: hidden;
         }
 
         .details-name {
             grid-column: 1;
             font-family: 'Roboto', sans-serif;
-            font-size: 12px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, .7);
             align-self: center;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+            max-width: 325px;
         }
 
         .details-focus {
             grid-column: 2;
             background:
-                    url(data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAADUAAAA3CAYAAACsLgJ7AAAAAXNSR0IArs4c6QAAA+dJREFUaAXtmj9vE0EQxQlCILlFQiJSClq3qZHdJIWREG2gJ18ApHRJiUJNg2j5ACAqKByJgooqnSWqCGigoUCAiOD9rFw8Hnn3fHe7tmP5SZOb2d15M/vn9vbOWbuUH12FQAocSUGy4Uo25hFxV+r+yBxqR85Oal5OyrYgZKtOLchElKaxmqnSIVqQBmsZ8miJc1uyJdmQbErWJQW+SPkoOZG8k7yV/JQsHFjGO5JXEhL8V0Fojx/+C3M79JTMsaRKR0Jt4YFvbrilyH1JKMEm5fDCP1N0FO2bJJT4QHVPJXcl3FM3JVfPrtiUU0+7EAf8xJkJdhXlj8Qn81dlLyRtSRXQHj/8PSdxiJcVBPCBsd9IqnbGJ4o/PJP4s3Wsq4B+hk5V9liSEvDBaztH3E7KIHBx0/p76IfKelRmALzw244RP+nm0XcBGMlcHRL1EPD7GSOPJIDcjhj6oyTM5SQsRR+78WDyhPcPVm7mabChRnuS9xKORr/PrtiUUz8N/OZBPo1OHvdFYEeKbbddksk11R9Kfkmsr9eppx3tYyCe3+45UtUGZzKbDM+TGG6o8oPE+pTptMcvBuJaHvKqhZa8/OGUUQuBEa/aoSJR/PAPgbhFW67kRX6VcU8elmhQwnDo2lvfaXT8YyC+5SG/yngmD0vCWS0Ebvqye8hyTdLxj20exLd+5DcRsV3EB2DXCuGBKmLLJ+Rny/GHJwQf3+d37sd3v/1za1zhNG3x2RpOv+PsuiY8TwLOPj75hXIfm1I7vV7n9SEEnkO+fR0bnhCIPxXn2lnDEJEtZ3lwsJwEHqy8LzUF/KFlDD9xShG7p7zzdV9g7O9Gb6LGeGLxx2JyTx2MlYyMh1LXR+ZQ/2psq36SEVuetm1MhycEmwttWKrPQ41D5a9VYdcwr+Ah7KnCtq2rwxMC8S0v+U1EbPmdOI/bzrbmSxlTrXfr5HT84QnBx/f5hfzGypfyRMHZaunOfkzb0p3S6dSOxN6cS/E+xUZy7Dp24d981Z/hBxY7W+h8O5gFsnyjKBLvS7EdO5XdKyozXeEnjo1LHsmwlN/9GJ2OhAOnHTlGMvXnMvj8DBGX+FmwK1bbqUJn82g3jIg/PAWnvRI3KwjgZ4wE2O756lO1c7THD3/bEXTiZO+QYgzR1V//bd0mNFA93xSa/j5FnJmCzaMvsZ1JpcOb9MeAqiPTk4N/QNftHDzwLQQ4eXCk4qzoD8FlHaQ9fvjHXoVUPR34RpEaLRFuS7YkG5JNybqkAG+sF+L/KIqEJ10PVGhnCzsrkkx31gxrkK86VWPQ5uKymqm5DHuNoLP4x+Ajl5e3XXVz8z/hZnJasj74OAAAAABJRU5ErkJggg==)
+                    url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHN0eWxlPi5he3N0cm9rZS13aWR0aDo0O3N0cm9rZTojZmZmO308L3N0eWxlPjxnIGZpbGw9Im5vbmUiPjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjEwIiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMTkiIGNsYXNzPSJhIi8+PHBhdGggZD0ibTUxIDMyaDkiIGNsYXNzPSJhIi8+PHBhdGggZD0ibTMyIDEzdi05IiBjbGFzcz0iYSIvPjxwYXRoIGQ9Im0zMiA2MHYtOSIgY2xhc3M9ImEiLz48cGF0aCBkPSJtNCAzMmg5IiBjbGFzcz0iYSIvPjwvZz48L3N2Zz4=")
                     no-repeat
                     left center;
             cursor: pointer;
@@ -80,29 +87,54 @@
             background-size: cover;
             float: right;
             align-self: center;
+            opacity: .7;
         }
 
         .details-focus:hover {
-            opacity: .5;
+            opacity: .9;
         }
 
         .details-content {
             display: grid;
-            grid-template-rows: max-content repeat(5, min-content);
-            grid-template-columns: repeat(5, min-content);
-            grid-column-gap: 10px;
+            grid-template-rows: max-content repeat(6, min-content);
+            grid-template-columns: repeat(4, min-content);
+            grid-column-gap: 35px;
         }
 
         .details-content > * {
+            font-family: 'Roboto 12px', sans-serif;
+            font-weight: lighter;
             white-space: nowrap;
         }
 
+        .details-sub-header {
+            font-size: 11px;
+            grid-row: 1;
+            margin-bottom: 5px;
+            color: rgba(255, 255, 255, .3);
+        }
+
+        .details-call-header {
+            grid-column: 1/3;
+        }
+
+        .details-method-header {
+            grid-column: 3/5;
+        }
+
+        .details-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .3);
+        }
+
         .details-value {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .7);
             justify-self: end;
         }
 
         .details-method {
-            opacity: .5;
+            /*opacity: .5;*/
         }
 
         .details-label.details-call {
@@ -114,16 +146,15 @@
         }
 
         .details-label.details-method {
-            grid-column: 4;
+            grid-column: 3;
         }
 
         .details-value.details-method {
-            grid-column: 5;
+            grid-column: 4;
         }
 
         .call-start {
             grid-row: 2;
-            margin-top: 10px;
         }
 
         .call-end {
@@ -144,7 +175,6 @@
 
         .method-total-duration {
             grid-row: 2;
-            margin-top: 10px;
         }
 
         .method-avg-duration {
@@ -197,21 +227,23 @@
         <canvas class="canvas" id="canvas"></canvas>
         <div class="details" id="details">
             <div class="details-header">
-                <div class="details-name">void android.view.DisplayEventReceiver.dispatchVsync(long, int, int)</div>
+                <div class="details-name">DisplayEventReceiver.dispatchVsync</div>
                 <div class="details-focus"></div>
             </div>
 
             <div class="details-content">
-                <div class="details-call details-label call-start">start</div><div class="details-call details-value call-start">0.758</div>
-                <div class="details-call details-label call-end">end</div><div class="details-call details-value call-end">100.726</div>
-                <div class="details-call details-label call-inclusive">inclusive</div><div class="details-call details-value call-inclusive">98.234</div>
-                <div class="details-call details-label call-exclusive">exclusive</div><div class="details-call details-value call-exclusive">7.498</div>
-                <div class="details-call details-label call-percent">percent of whole</div><div class="details-call details-value call-percent">0.035%</div>
+                <div class="details-sub-header details-call-header">CALL STATS</div>
+                <div class="details-call details-label call-start">Start</div><div class="details-call details-value call-start">0.758</div>
+                <div class="details-call details-label call-end">End</div><div class="details-call details-value call-end">100.726</div>
+                <div class="details-call details-label call-inclusive">Inclusive</div><div class="details-call details-value call-inclusive">98.234</div>
+                <div class="details-call details-label call-exclusive">Exclusive</div><div class="details-call details-value call-exclusive">7.498</div>
+                <div class="details-call details-label call-percent">% of whole</div><div class="details-call details-value call-percent">0.035%</div>
 
-                <div class="details-method details-label method-total-duration">total duration</div><div class="details-method details-value method-total-duration">1984.758</div>
-                <div class="details-method details-label method-avg-duration">avg duration</div><div class="details-method details-value method-avg-duration">75.726</div>
-                <div class="details-method details-label method-call-count">call count</div><div class="details-method details-value method-call-count">23</div>
-                <div class="details-method details-label method-percent">percent of whole</div><div class="details-method details-value method-percent">0.035%</div>
+                <div class="details-sub-header details-method-header">METHOD STATS</div>
+                <div class="details-method details-label method-total-duration">Total duration</div><div class="details-method details-value method-total-duration">1984.758</div>
+                <div class="details-method details-label method-avg-duration">Avg duration</div><div class="details-method details-value method-avg-duration">75.726</div>
+                <div class="details-method details-label method-call-count">Call count</div><div class="details-method details-value method-call-count">23</div>
+                <div class="details-method details-label method-percent">% of whole</div><div class="details-method details-value method-percent">0.035%</div>
             </div>
         </div>
     </div>
@@ -237,25 +269,33 @@
     })();
 
     const THEME = {
-        'AXIS_LINE_COLOR': '#FFFFFF',
-        'AXIS_LINE_STROKE_WIDTH': PIXEL_RATIO * 2,
+        'AXIS_LINE_COLOR': '#AAAAAA',
+        'AXIS_LINE_STROKE_WIDTH': PIXEL_RATIO,
         'AXIS_BACKGROUND_COLOR': '#303030',
-        'AXIS_HEIGHT': PIXEL_RATIO * 30,
+        'AXIS_HEIGHT': PIXEL_RATIO * 20,
         'VIEW_PORT_COLOR': "#081016",
         'EVENT_BORDER_COLOR': '#2a555f',
         'EVENT_HEIGHT': 40,
         'COLOR_PALETTE':
             [
-                '#4f68ab',
-                '#4b66a6',
-                '#415a94',
-                '#374d80',
-                '#30446f',
-                '#28375e',
-                '#202e4f',
-                '#4d7166',
-                '#83b8ab',
-                '#1b2b26'
+                '#429199',
+                '#163E42',
+                '#59507E',
+                '#5A735A',
+                '#7F4B6D',
+                '#2647AC',
+                '#216E56',
+                '#6D3562',
+                '#2A5B74',
+                '#4C597F',
+                '#664473',
+                '#152555',
+                '#5879DA',
+                '#195188',
+                '#1C8EB4',
+                '#0E7077',
+                '#4D4D4D',
+                '#717171',
             ],
         "MARGIN_AROUND_METHODS_AT_START": 0.10,
     };
@@ -435,7 +475,7 @@
             canvas.width = textWidth * PIXEL_RATIO;
             canvas.height = textHeight;
 
-            context.fillStyle = "white";
+            context.fillStyle = "rgba(255, 255, 255, 0.8)";
             context.font = this.font;
             context.textBaseline = 'middle';
             context.fillText(name, 0, canvas.height / 2);
@@ -734,7 +774,7 @@
 
         selectCall(call) {
             this.selectedCall = call;
-            this.nameEl.innerText = call.name;
+            this.nameEl.innerText = call.shortName;
 
             this.el.style.display = 'inline';
 
@@ -1141,8 +1181,8 @@
 
                 for (let minorDivision = 0; minorDivision < 5; minorDivision++) {
                     this.context.beginPath();
-                    this.context.moveTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 0);
-                    this.context.lineTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, 1 / 3 * THEME.AXIS_HEIGHT);
+                    this.context.moveTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, THEME.AXIS_HEIGHT);
+                    this.context.lineTo(majorDivision * divisionSize + minorDivision * divisionSize / 5, .8 * THEME.AXIS_HEIGHT);
                     this.context.stroke();
                     this.context.closePath();
                 }
@@ -1152,7 +1192,7 @@
                 this.context.textBaseline = 'middle';
                 this.context.translate(majorDivision * divisionSize, THEME.AXIS_HEIGHT / 2);
                 this.context.scale(1 / this.transform.getScaleX(), 1);
-                this.context.font = '24px Roboto';
+                this.context.font = '20px Roboto';
                 this.context.fillText("  " + AxisRenderer.formatTime(majorDivision * divisionSize, divisionSize), 0, 0);
                 this.context.restore();
             }
