@@ -808,9 +808,9 @@
             this.el.style.display = 'inline';
 
             let callDuration = call.end - call.start;
-            this.callStartEl.innerText = DetailsController._format(call.start / 1000);
-            this.callEndEl.innerText = DetailsController._format(call.end / 1000);
-            this.callInclusiveEl.innerText = DetailsController._format((callDuration) / 1000);
+            this.callStartEl.innerText = DetailsController._formatNs(call.start);
+            this.callEndEl.innerText = DetailsController._formatNs(call.end);
+            this.callInclusiveEl.innerText = DetailsController._formatDuration(callDuration);
             this.callExclusiveEl.innerText = '<todo>';
 
             let totalTraceDuration = this.methodRegistry.maxTimestamp - this.methodRegistry.minTimestamp;
@@ -818,14 +818,28 @@
 
             let method = call.method;
             let methodTotalDuration = method.totalDuration;
-            this.methodTotalDurationEl.innerText = DetailsController._format(methodTotalDuration / 1000);
-            this.methodAvgDurationEl.innerText = DetailsController._format(method.totalRecursiveDuration / method.calls.length / 1000);
+            this.methodTotalDurationEl.innerText = DetailsController._formatDuration(methodTotalDuration);
+            this.methodAvgDurationEl.innerText = DetailsController._formatDuration(method.totalRecursiveDuration / method.calls.length);
             this.methodCallCountEl.innerText = method.calls.length.toString();
             this.methodPercentEl.innerText = DetailsController._format(100 * methodTotalDuration / totalTraceDuration) + '%';
         }
 
-        static _format(number, places = 3) {
+        static _formatDuration(number) {
+            if (number < 1000) {
+                return number + "ns";
+            } else if (number < 1000 * 1000) {
+                return Number(number / 1000.0).toFixed(2).toString() + "µs"
+            } else {
+                return Number(number / 1000.0 / 1000).toFixed(2).toString() + "ms"
+            }
+        }
+
+        static _format(number, places = 2) {
             return Number(number).toFixed(places).toString();
+        }
+
+        static _formatNs(number) {
+            return number + "ns";
         }
     }
 
