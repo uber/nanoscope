@@ -29,7 +29,14 @@ enum class Subcommand(
 class StartHandler(private val args: List<String>): Runnable {
 
     override fun run() {
-        println("start called: $args")
+        val trace = Nanoscope.startTracing()
+        println("Tracing... (Press ENTER to stop)")
+        while (true) {
+            if (System.`in`.read() == 10) {
+                break
+            }
+        }
+        trace.stop()
     }
 }
 
