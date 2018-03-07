@@ -251,6 +251,7 @@
         <canvas class="minimapCanvas" id="minimapCanvas"></canvas>
     </div>
 </div>
+<script type="text/plain" id="tracedata">TRACE_DATA_PLACEHOLDER</script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js"></script>
 
 <script>
@@ -1360,31 +1361,20 @@
             }
         }
 
+        loadEmbeddedData() {
+            let traceDataString = document.getElementById("tracedata").innerText;
+            if (traceDataString === "TRACE_DATA_PLACEHOLDER") {
+                return;
+            }
+            let traceDataBytes = new TextEncoder().encode(traceDataString);
+            this._loadBytes(traceDataBytes)
+        }
+
         onFileChange(file) {
-            this.canvasTraceRenderer.clear();
             let fileReader = new FileReader();
             fileReader.onload = e => {
                 let bytes = new Uint8Array(e.target.result);
-                let traceDataLoader = new TraceDataProcessor(bytes);
-                let methodRegistry = new MethodRegistry();
-                traceDataLoader.onPush = call => {
-                    methodRegistry.pushCall(call);
-                };
-                traceDataLoader.onPop = call => {
-                    this.canvasTraceRenderer.addCall(call);
-                    methodRegistry.popCall(call);
-                };
-                traceDataLoader.onProgress = this.loadingController.onProgress.bind(this.loadingController);
-                traceDataLoader.onDone = () => {
-                    this.searchController.setMethodRegistry(methodRegistry);
-                    this.minimapRenderer.setMethodRegistry(methodRegistry);
-                    this.detailsController.setMethodRegistry(methodRegistry);
-                    this.canvasTraceRenderer.focusOnRegistry(methodRegistry);
-                    this.loadingController.onDone();
-                    this._refreshCanvas();
-                };
-                this.loadingController.onStart(bytes.length);
-                traceDataLoader.load();
+                this._loadBytes(bytes)
             };
             fileReader.readAsArrayBuffer(file);
         }
@@ -1425,6 +1415,30 @@
             return false;
         }
 
+        _loadBytes(bytes) {
+            this.canvasTraceRenderer.clear();
+            let traceDataLoader = new TraceDataProcessor(bytes);
+            let methodRegistry = new MethodRegistry();
+            traceDataLoader.onPush = call => {
+                methodRegistry.pushCall(call);
+            };
+            traceDataLoader.onPop = call => {
+                this.canvasTraceRenderer.addCall(call);
+                methodRegistry.popCall(call);
+            };
+            traceDataLoader.onProgress = this.loadingController.onProgress.bind(this.loadingController);
+            traceDataLoader.onDone = () => {
+                this.searchController.setMethodRegistry(methodRegistry);
+                this.minimapRenderer.setMethodRegistry(methodRegistry);
+                this.detailsController.setMethodRegistry(methodRegistry);
+                this.canvasTraceRenderer.focusOnRegistry(methodRegistry);
+                this.loadingController.onDone();
+                this._refreshCanvas();
+            };
+            this.loadingController.onStart(bytes.length);
+            traceDataLoader.load();
+        }
+
         _focusCall(call) {
             this.canvasTraceRenderer.focus(call);
         }
@@ -1456,6 +1470,8 @@
     }
 
     resizeCanvas();
+
+    controller.loadEmbeddedData();
 
     document.getElementById('file').addEventListener('change', event => {
         let file = event.target.files[0];
