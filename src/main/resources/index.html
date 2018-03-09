@@ -310,6 +310,7 @@
             this.charZero = '0'.charCodeAt(0);
             this.charColon = ':'.charCodeAt(0);
             this.charNewline = '\n'.charCodeAt(0);
+            this.charMetaDataDelimiter = '#'.charCodeAt(0);
             this.charPeriod = '.'.charCodeAt(0);
             this.charLeftParen = '('.charCodeAt(0);
 
@@ -375,9 +376,10 @@
                 return;
             }
             this.timestamp = loadedTimestamp;
-            let names = this.loadName();
-            let name = names[0];
-            let shortName = names[1];
+            let namesAndMeta = this.loadNameAndMeta();
+            let name = namesAndMeta[0];
+            let shortName = namesAndMeta[1];
+            let meta = namesAndMeta[2];
             if (this.firstTimestamp === -1) {
                 this.firstTimestamp = this.timestamp;
             }
@@ -388,7 +390,7 @@
                 }
             } else {
                 let stackDepth = this.callStack.length + 1;
-                let call = new TraceCall(name, shortName, stackDepth, this.timestamp);
+                let call = new TraceCall(name, shortName, meta, stackDepth, this.timestamp);
                 this.callStack.push(call);
                 this.onPush(call);
             }
@@ -416,13 +418,13 @@
             return timestamp;
         }
 
-        loadName() {
+        loadNameAndMeta() {
             let name = "";
             let shortName = "";
             let next = this.next();
             let index = 0;
             let periods = [];
-            while (!next.done && next.value !== this.charNewline) {
+            while (!next.done && next.value !== this.charNewline && next.value !== this.charMetaDataDelimiter) {
                 if (!shortName) {
                     if (next.value === this.charPeriod) {
                         if (periods.size < 2) {
@@ -439,7 +441,15 @@
                 next = this.next();
                 index++;
             }
-            return [name, shortName];
+            let meta = "";
+            if (next.value === this.charMetaDataDelimiter) {
+                next = this.next();
+            }
+            while (!next.done && next.value !== this.charNewline) {
+                meta += String.fromCharCode(next.value);
+                next = this.next();
+            }
+            return [name, shortName, meta];
         }
     }
 
@@ -486,9 +496,10 @@
     // Represents a single invocation of a method.
     class TraceCall {
 
-        constructor(name, shortName, stackDepth, start) {
+        constructor(name, shortName, meta, stackDepth, start) {
             this.name = name;
             this.shortName = shortName;
+            this.meta = meta;
             this.stackDepth = stackDepth;
             this.start = start;
             this.end = null;
@@ -804,7 +815,14 @@
 
         selectCall(call) {
             this.selectedCall = call;
-            this.nameEl.innerText = call.shortName;
+            if (call.meta !== "") {
+                // If the meta descriptor has a slash in it we take all the content after the slash.
+                let metaParts = call.meta.split('/');
+                let metaShort = metaParts[metaParts.length -1];
+                this.nameEl.innerHTML = call.shortName + "</br><i>" + metaShort + "</i>";
+            } else {
+                this.nameEl.innerText = call.shortName;
+            }
 
             this.el.style.display = 'inline';
 
