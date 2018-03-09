@@ -3,6 +3,8 @@ package com.uber.nanoscope
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
+val ROM_URL = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-rom-0.0.1.zip"
+
 /**
  * Represents available subcommands.
  */
@@ -46,7 +48,12 @@ class StartHandler(private val args: List<String>): Runnable {
 class FlashHandler(private val args: List<String>): Runnable {
 
     override fun run() {
-        println("flash called: $args")
+        try {
+            Nanoscope.flashDevice(ROM_URL)
+        } catch (e: FlashException) {
+            println(e.message)
+            exitProcess(1)
+        }
     }
 }
 
