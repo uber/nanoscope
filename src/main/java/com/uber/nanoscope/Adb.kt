@@ -31,6 +31,10 @@ class Adb {
             val output = "[ ! -e \"$path\" ]; echo $?".adbShell().inputStream.bufferedReader().readText().trim()
             return output == "1"
         }
+
+        fun root() {
+            "adb root".run().waitFor()
+        }
     }
 }
 

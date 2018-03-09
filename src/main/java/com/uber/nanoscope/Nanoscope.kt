@@ -53,12 +53,14 @@ class Nanoscope {
         private val configDir = File(homeDir, ".nanoscope")
 
         fun startTracing(): Trace {
+            Adb.root()
             val filename = "out.txt"
             val foregroundPackage = Adb.getForegroundPackage()
             return Trace(foregroundPackage, filename)
         }
 
         fun flashDevice(romUrl: String) {
+            Adb.root()
             val md5 = MessageDigest.getInstance("MD5").digest(romUrl.toByteArray())
             val key = Base64.encode(md5)
             val outDir = File(configDir, "roms/$key")
