@@ -311,6 +311,7 @@
             this.charColon = ':'.charCodeAt(0);
             this.charNewline = '\n'.charCodeAt(0);
             this.charMetaDataDelimiter = '#'.charCodeAt(0);
+            this.charNoParse = '+'.charCodeAt(0);
             this.charPeriod = '.'.charCodeAt(0);
             this.charLeftParen = '('.charCodeAt(0);
 
@@ -421,33 +422,42 @@
         loadNameAndMeta() {
             let name = "";
             let shortName = "";
+            let meta = "";
             let next = this.next();
             let index = 0;
             let periods = [];
-            while (!next.done && next.value !== this.charNewline && next.value !== this.charMetaDataDelimiter) {
-                if (!shortName) {
-                    if (next.value === this.charPeriod) {
-                        if (periods.size < 2) {
-                            periods.push(index);
-                        } else {
-                            periods[0] = periods[1];
-                            periods[1] = index;
-                        }
-                    } else if (next.value === this.charLeftParen) {
-                        shortName = name.substring(periods[0] + 1, index)
-                    }
+            if (next.value === this.charNoParse) {
+                next = this.next();
+                while (!next.done && next.value !== this.charNewline) {
+                    name += String.fromCharCode(next.value);
+                    next = this.next();
                 }
-                name += String.fromCharCode(next.value);
-                next = this.next();
-                index++;
-            }
-            let meta = "";
-            if (next.value === this.charMetaDataDelimiter) {
-                next = this.next();
-            }
-            while (!next.done && next.value !== this.charNewline) {
-                meta += String.fromCharCode(next.value);
-                next = this.next();
+                shortName = name;
+            } else {
+                while (!next.done && next.value !== this.charNewline && next.value !== this.charMetaDataDelimiter) {
+                    if (!shortName) {
+                        if (next.value === this.charPeriod) {
+                            if (periods.size < 2) {
+                                periods.push(index);
+                            } else {
+                                periods[0] = periods[1];
+                                periods[1] = index;
+                            }
+                        } else if (next.value === this.charLeftParen) {
+                            shortName = name.substring(periods[0] + 1, index)
+                        }
+                    }
+                    name += String.fromCharCode(next.value);
+                    next = this.next();
+                    index++;
+                }
+                if (next.value === this.charMetaDataDelimiter) {
+                    next = this.next();
+                }
+                while (!next.done && next.value !== this.charNewline) {
+                    meta += String.fromCharCode(next.value);
+                    next = this.next();
+                }
             }
             return [name, shortName, meta];
         }
@@ -855,7 +865,7 @@
             if (number < 1000) {
                 return number + "ns";
             } else if (number < 1000 * 1000) {
-                return Number(number / 1000.0).toFixed(2).toString() + "µs"
+                return Number(number / 1000.0).toFixed(2).toString() + "\u03BCs"
             } else {
                 return Number(number / 1000.0 / 1000).toFixed(2).toString() + "ms"
             }

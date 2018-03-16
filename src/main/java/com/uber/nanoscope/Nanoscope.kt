@@ -1,5 +1,7 @@
 package com.uber.nanoscope
 
+import com.squareup.moshi.KotlinJsonAdapterFactory
+import com.squareup.moshi.Moshi
 import com.sun.org.apache.xml.internal.security.utils.Base64
 import java.io.File
 import java.io.IOException
@@ -27,23 +29,12 @@ class Nanoscope {
                 Thread.sleep(500)
             }
 
-            val localPath = File.createTempFile("nanoscope", ".trace").absolutePath
+            val localFile = File.createTempFile("nanoscope", ".txt")
+            val localPath = localFile.absolutePath
             println("Pulling trace file... ($localPath)")
             Adb.pullFile(remotePath, localPath)
 
-            val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
-            println("Building HTML... ($htmlPath)")
-            val html = buildHtml(localPath)
-            File(htmlPath).writeText(html)
-
-            println("Opening HTML...")
-            Runtime.getRuntime().exec("open $htmlPath")
-        }
-
-        private fun buildHtml(traceFilePath: String): String {
-            val traceDataString = File(traceFilePath).readText()
-            val html = javaClass.classLoader.getResourceAsStream("index.html").bufferedReader().readText()
-            return html.replaceFirst("TRACE_DATA_PLACEHOLDER", traceDataString)
+            displayTrace(localFile)
         }
     }
 
@@ -51,6 +42,47 @@ class Nanoscope {
 
         private val homeDir = File(System.getProperty("user.home"))
         private val configDir = File(homeDir, ".nanoscope")
+
+        fun openTrace(file: File) {
+            val adapter = Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(OpenHandler.TraceEvent::class.java)
+            val events = sortedSetOf<OpenHandler.Event>()
+            var nanotraceFile = file
+
+            file.bufferedReader().use {
+                if (it.readLine().startsWith("[")) {
+                    // This appears to be a Chrome trace file so convert to a Nanoscope trace file before opening.
+                    nanotraceFile = createTempFile("nanoscope", ".txt")
+                    file.useLines { lines ->
+                        lines
+                                .filter { it != "["  && it != "]" && "{}" !in it}
+                                .map { adapter.fromJson(it)!! }
+                                .filter { it.ph == "X" }
+                                .forEach {
+                                    val start = it.ts.toDouble()
+                                    val end = start + it.dur!!.toDouble()
+                                    val duration = end - start
+                                    events.add(OpenHandler.Event(it.name, start, true, duration))
+                                    events.add(OpenHandler.Event(it.name, end, false, duration))
+                                }
+                    }
+
+                    nanotraceFile.printWriter().use { out ->
+                        var firstTimestamp: Long? = null
+                        events.forEach {
+                            var timestamp = it.timestamp.toLong()
+                            if (firstTimestamp == null) {
+                                firstTimestamp = timestamp
+                                println("first timestamp: $firstTimestamp")
+                            }
+                            timestamp -= firstTimestamp!!
+                            out.println(if (it.start) "$timestamp:+${it.name}" else "$timestamp:POP")
+                        }
+                    }
+                }
+            }
+
+            displayTrace(nanotraceFile)
+        }
 
         fun startTracing(): Trace {
             Adb.root()
@@ -67,12 +99,12 @@ class Nanoscope {
 
             downloadIfNecessary(outDir, romUrl)
 
-            val installScipt = File(outDir, "install.sh")
-            if (!installScipt.exists()) {
+            val installScript = File(outDir, "install.sh")
+            if (!installScript.exists()) {
                 throw FlashException("Invalid ROM. install.sh script does not exist.")
             }
 
-            installScipt.setExecutable(true)
+            installScript.setExecutable(true)
 
             println("Flashing device...")
             val status = ProcessBuilder("./install.sh")
@@ -140,6 +172,20 @@ class Nanoscope {
                     entry = zipIn.nextEntry
                 }
             }
+        }
+
+        private fun displayTrace(traceFile: File) {
+            val traceDataString = traceFile.readText()
+            var html = this::class.java.classLoader.getResourceAsStream("index.html").bufferedReader().readText()
+            html = html.replaceFirst("TRACE_DATA_PLACEHOLDER", traceDataString)
+
+            val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
+            println("Building HTML... ($htmlPath)")
+
+            File(htmlPath).writeText(html)
+
+            println("Opening HTML...")
+            Runtime.getRuntime().exec("open $htmlPath")
         }
     }
 }
