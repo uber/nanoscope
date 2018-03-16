@@ -57,3 +57,5 @@ task('deleteReleaseDrafts') {
         Nanoscope.deleteReleaseDrafts()
     }
 }
+
+applicationDefaultJvmArgs = ["-Xmx8g"]
