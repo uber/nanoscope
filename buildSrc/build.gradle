@@ -1,0 +1,25 @@
+buildscript {
+    ext.kotlin_version = '1.1.50'
+
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+apply plugin: 'kotlin'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    compile "com.google.code.findbugs:jsr305:3.0.2"
+    compile "com.github.kittinunf.fuel:fuel-moshi:1.12.1"
+}
