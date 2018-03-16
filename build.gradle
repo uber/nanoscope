@@ -1,3 +1,6 @@
+import com.uber.nanoscope.build.IncrementType
+import com.uber.nanoscope.build.Nanoscope
+
 buildscript {
     ext.kotlin_version = '1.1.50'
 
@@ -12,8 +15,6 @@ buildscript {
 apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'application'
-
-version = "0.0.1"
 
 mainClassName = "com.uber.nanoscope.MainKt"
 
@@ -35,4 +36,24 @@ compileKotlin {
 
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+task('deployRelease', dependsOn: distZip) {
+    doLast {
+        if (!project.hasProperty("increment")) {
+            throw new InvalidUserDataException("Must supply an increment type: -Pincrement=[major|minor|patch]")
+        }
+        try {
+            def incrementType = IncrementType.valueOf(project.increment.toUpperCase())
+            Nanoscope.release(project.tasks.distZip.archivePath, incrementType)
+        } catch (IllegalArgumentException ignore) {
+            throw new InvalidUserDataException("Invalid increment type: ${project.increment}. Must be one of [major|minor|patch].")
+        }
+    }
+}
+
+task('deleteReleaseDrafts') {
+    doLast {
+        Nanoscope.deleteReleaseDrafts()
+    }
 }
