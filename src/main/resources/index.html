@@ -254,7 +254,7 @@
 <script type="text/plain" id="tracedata">TRACE_DATA_PLACEHOLDER</script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js"></script>
 
-<script>
+<script type="text/javascript">
     'use strict';
 
     const PIXEL_RATIO = (function () {
@@ -1510,7 +1510,7 @@
         controller.onFileChange(file);
     }, false);
 
-    document.getElementById('canvas').addEventListener('onresize', () => {
+    window.addEventListener('resize', () => {
         resizeCanvas();
     });
 
