@@ -1127,6 +1127,10 @@
             CanvasTraceRenderer._ensureBackgroundColor(call);
             this.context.fillStyle = call.backgroundColor;
             this.context.fillRect(left, top, width, height);
+            if (call === this.selectedCall) {
+                this.context.fillStyle = "#fff6";
+                this.context.fillRect(left, top, width, height);
+            }
 
             let scale = this.transform.getScaleX();
             let cellScreenWidth = scale * width;
