@@ -118,15 +118,15 @@ class OpenHandler(private val args: List<String>): Runnable {
  *   open: Opens a trace file with the Nanoscope Visualizer. Currently supports Nanoscope and Chrome trace file formats.
  */
 fun main(args: Array<String>) {
-    if (args.isEmpty()) {
-        println("Must specify a subcommand: [start, flash].")
-        exitProcess(1)
-    }
-
     val subcommandOptions = Subcommand.values().map { it.name.toLowerCase() }
     var usageMessage = "usage: nanoscope $subcommandOptions\n"
     Subcommand.values().forEach {
         usageMessage += "  ${it.usage}\n"
+    }
+
+    if (args.isEmpty()) {
+        println(usageMessage)
+        exitProcess(1)
     }
 
     val subcommandString = args[0]

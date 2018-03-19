@@ -58,8 +58,10 @@ class Nanoscope {
                                 .map { adapter.fromJson(it)!! }
                                 .filter { it.ph == "X" }
                                 .forEach {
-                                    val start = it.ts.toDouble()
-                                    val end = start + it.dur!!.toDouble()
+                                    val startUs = it.ts.toDouble()
+                                    val endUs = startUs + it.dur!!.toDouble()
+                                    val start = startUs * 1000
+                                    val end = endUs * 1000
                                     val duration = end - start
                                     events.add(OpenHandler.Event(it.name, start, true, duration))
                                     events.add(OpenHandler.Event(it.name, end, false, duration))
