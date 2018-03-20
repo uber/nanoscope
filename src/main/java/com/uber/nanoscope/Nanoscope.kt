@@ -11,6 +11,48 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 
+data class Version(val major: Int, val minor: Int, val patch: Int) : Comparable<Version> {
+
+    override fun toString(): String {
+        return "$major.$minor.$patch"
+    }
+
+    override fun compareTo(other: Version): Int {
+        val majorRes = major.compareTo(other.major)
+        if (majorRes != 0) {
+            return majorRes
+        }
+
+        val minorRes = minor.compareTo(other.minor)
+        if (minorRes != 0) {
+            return minorRes
+        }
+
+        return patch.compareTo(other.patch)
+    }
+
+    companion object {
+
+        fun fromString(str: String): Version {
+            val parts = str.split(".")
+            if (parts.size != 3) {
+                throw IllegalArgumentException("Invalid version string: $str")
+            }
+
+            fun parsePart(index: Int): Int {
+                return parts[index].toIntOrNull() ?: throw IllegalArgumentException("Invalid version string: $str")
+            }
+
+            val major = parsePart(0)
+            val minor = parsePart(1)
+            val patch = parsePart(2)
+            return Version(major, minor, patch)
+        }
+    }
+}
+
+class IncompatibleVersionError(val clientVersion: Version, val romVersion: Version?): RuntimeException()
+
 class Nanoscope {
 
     class Trace(
@@ -42,6 +84,29 @@ class Nanoscope {
 
         private val homeDir = File(System.getProperty("user.home"))
         private val configDir = File(homeDir, ".nanoscope")
+
+        fun checkVersion() {
+            val clientVersion = getClientVersion()
+            val romVersion = getROMVersion() ?: throw IncompatibleVersionError(clientVersion, null)
+            if (clientVersion.major != romVersion.major
+                    || (clientVersion.major == 0 && clientVersion.minor != romVersion.minor)) {
+                throw IncompatibleVersionError(clientVersion, romVersion)
+            }
+        }
+
+        private fun getClientVersion(): Version {
+            Nanoscope::class.java.classLoader.getResourceAsStream("version.txt").bufferedReader().use {
+                return Version.fromString(it.readText().trim())
+            }
+        }
+
+        private fun getROMVersion(): Version? {
+            return try {
+                Version.fromString(Adb.getROMVersion())
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+        }
 
         fun openTrace(file: File) {
             val adapter = Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(OpenHandler.TraceEvent::class.java)

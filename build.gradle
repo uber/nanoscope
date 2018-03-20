@@ -24,6 +24,8 @@ repositories {
     mavenCentral()
 }
 
+version="0.1.0"
+
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
     compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
@@ -37,6 +39,18 @@ compileKotlin {
 
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+task('createVersion', dependsOn: processResources) {
+    doLast {
+        new File("$buildDir/resources/main/version.txt").withWriter { w ->
+            w.write(project.version.toString())
+        }
+    }
+}
+
+classes {
+    dependsOn project.tasks.createVersion
 }
 
 task('deployRelease', dependsOn: distZip) {

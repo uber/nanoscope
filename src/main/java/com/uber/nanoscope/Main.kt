@@ -4,7 +4,8 @@ import java.io.File
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
-val ROM_URL = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-rom-0.0.1.zip"
+val ROM_VERSION = "0.1.0"
+val ROM_URL = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-rom-$ROM_VERSION.zip"
 
 /**
  * Represents available subcommands.
@@ -27,12 +28,67 @@ enum class Subcommand(
     }
 }
 
+private fun ensureCompatibility() {
+    try {
+        Nanoscope.checkVersion()
+    } catch (e: IncompatibleVersionError) {
+        @Suppress("UNUSED_VARIABLE")
+        val reason = if (e.romVersion == null) {
+            """The OS running on your device is not supported. In order to install the Nanoscope ROM, run the following:
+                |
+                |###################################################
+                |# WARNING: This will wipe all of your phone data! #
+                |###################################################
+                |
+                |    $ nanoscope flash""".trimMargin()
+        } else {
+            val r = e.romVersion.compareTo(e.clientVersion)
+            if (r < 0) {
+                """Your Nanoscope ROM is out of date and incompatible with your client:
+                    |    ROM Version: ${e.romVersion}
+                    |    Client Version: ${e.clientVersion}
+                    |
+                    |To update your ROM, run the following:
+                    |    $ brew update && brew upgrade nanoscope
+                    |    $ nanoscope flash
+                    """.trimMargin()
+            } else {
+                """Your Nanoscope client is out of date and incompatible with your ROM:
+                    |    ROM Version: ${e.romVersion}
+                    |    Client Version: ${e.clientVersion}
+                    |
+                    |To update your client, run the following:
+                    |    $ brew update && brew upgrade nanoscope
+                    """.trimMargin()
+            }
+        }
+
+        println("""Warning - versions may be incompatible:
+            |ROM Version: ${e.romVersion}
+            |Client Version: ${e.clientVersion}
+        """.trimMargin())
+        // Don't enforce version compatibility for now.
+        // println(reason)
+        // exitProcess(1)
+    }
+}
+
+abstract class VersionedHandler: Runnable {
+
+    override final fun run() {
+        ensureCompatibility()
+        doRun()
+    }
+
+    abstract fun doRun()
+}
+
 /**
  * Handler for "nanoscope start" subcommand.
  */
-class StartHandler(private val args: List<String>): Runnable {
+class StartHandler(private val args: List<String>): VersionedHandler() {
 
-    override fun run() {
+    override fun doRun() {
         val trace = Nanoscope.startTracing()
         println("Tracing... (Press ENTER to stop)")
         while (true) {
@@ -62,9 +118,9 @@ class FlashHandler(private val args: List<String>): Runnable {
 /**
  * Handler for "nanoscope open" subcommand.
  */
-class OpenHandler(private val args: List<String>): Runnable {
+class OpenHandler(private val args: List<String>): VersionedHandler() {
 
-    override fun run() {
+    override fun doRun() {
         if (args.isEmpty()) {
             println("usage: nanoscope open <tracefile>")
             exitProcess(1)

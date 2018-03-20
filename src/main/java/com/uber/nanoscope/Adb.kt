@@ -35,6 +35,10 @@ class Adb {
         fun root() {
             "adb root".run().waitFor()
         }
+
+        fun getROMVersion(): String {
+            return "adb shell getprop ro.build.nanoscope".run().inputStream.bufferedReader().readText().trim()
+        }
     }
 }
 
