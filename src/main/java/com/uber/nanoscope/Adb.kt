@@ -10,7 +10,7 @@ class Adb {
                     .inputStream
                     .bufferedReader()
                     .useLines { lines ->
-                        val line = lines.first { it.contains("mFocusedActivity") }.trim()
+                        val line = lines.first { "mFocusedActivity" in it || "ResumedActivity" in it }.trim()
                         val component = line.split(' ')[3]
                         val packageName = component.split('/')[0]
                         packageName
