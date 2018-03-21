@@ -6,6 +6,7 @@
             margin: 0;
             height: 100%;
             overflow: hidden;
+            background-color: #000;
         }
 
         .main {
@@ -200,6 +201,55 @@
             background-color: green;
         }
 
+        .searchIcon {
+            border: transparent solid 10px;
+            background:
+                    url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgdmlld0JveD0iMCAwIDI1NiAyNTYiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBzdHJva2U9Im5vbmUiIHN0cm9rZS13aWR0aD0iMSIgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIj48Y2lyY2xlIHN0cm9rZT0iI0ZGRiIgc3Ryb2tlLXdpZHRoPSIyMCIgY3g9Ijk2IiBjeT0iOTYiIHI9Ijg1Ii8+PHBhdGggZD0iTTE0Ny44OTMgMTY5LjEwN2wyMS4yMTQtMjEuMjE0IDc1Ljc0NiA3NS43NDdjMy45MDUgMy45MDUgMy45MDUgMTAuMjM3IDAgMTQuMTQybC03LjA3MSA3LjA3Yy0zLjkwNSAzLjkwNi0xMC4yMzcgMy45MDYtMTQuMTQyIDBsLTc1Ljc0Ny03NS43NDV6IiBmaWxsPSIjRkZGIi8+PC9nPjwvc3ZnPg==")
+                    no-repeat
+                    left center;
+            background-size: cover;
+            width: 20px;
+            height: 20px;
+            opacity: .7;
+            margin-right: 10px;
+            float: right;
+            cursor: pointer;
+        }
+
+        .searchIcon:hover {
+            opacity: .9;
+        }
+
+        .searchModal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .searchPanel {
+            outline: none;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background: #111;
+            float: right;
+            padding: 20px;
+        }
+
+        .search {
+            width: 100%;
+            outline: none;
+            border: none;
+            background-color: #00000000;
+            color: white;
+            font-size: 20px;
+        }
+
         .searchResultRow {
             font-family: 'Roboto', sans-serif;
             font-size: 12px;
@@ -207,10 +257,28 @@
             padding-top: 5px;
             padding-bottom: 5px;
             cursor: pointer;
+            color: #FFF9;
+            border-bottom: #FFF5 solid 1px;
         }
 
         .searchResultRow:hover {
             background-color: darkgray;
+        }
+
+        .file {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+
+        .title {
+            position: absolute;
+            left: 0;
+            top: 0;
+            margin: 15px;
+            color: #aaa;
+            font-family: 'Roboto 12px', sans-serif;
+            font-weight: lighter;
         }
     </style>
 </head>
@@ -218,10 +286,10 @@
 <div class="main">
     <div class="header">
         <div id="progress" class="progress"></div>
-        <input type="file" id="file" name="file">
-        <input type="text" id="search" name="search">
-        <div id="searchResults" class="searchResults"></div>
+        <input type="file" class="file" id="file" name="file">
+        <div id="searchIcon" class="searchIcon"></div>
         <canvas class="axisCanvas" id="axisCanvas"></canvas>
+        <div class="title">Nanoscope</div>
     </div>
     <div class="content">
         <canvas class="canvas" id="canvas"></canvas>
@@ -250,6 +318,12 @@
     <div class="footer">
         <canvas class="minimapCanvas" id="minimapCanvas"></canvas>
     </div>
+    <div id="searchModal" class="searchModal">
+        <div id="searchPanel" class="searchPanel">
+            <input type="text" id="search" class="search" name="search">
+            <div id="searchResults" class="searchResults"></div>
+        </div>
+    </div>
 </div>
 <script type="text/plain" id="tracedata">TRACE_DATA_PLACEHOLDER</script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js"></script>
@@ -270,9 +344,9 @@
     })();
 
     const THEME = {
-        'AXIS_LINE_COLOR': '#AAAAAA',
+        'AXIS_LINE_COLOR': '#666',
         'AXIS_LINE_STROKE_WIDTH': PIXEL_RATIO,
-        'AXIS_BACKGROUND_COLOR': '#303030',
+        'AXIS_BACKGROUND_COLOR': '#181818',
         'AXIS_HEIGHT': PIXEL_RATIO * 20,
         'VIEW_PORT_COLOR': "#081016",
         'EVENT_BORDER_COLOR': '#2a555f',
@@ -1326,11 +1400,11 @@
             this.context.save();
             this.context.setTransform(1, 0, 0, 1, 0, 0);
 
-            let screenViewport = this.transform.getScreenViewport();
-            this.context.beginPath();
-            this.context.moveTo(screenViewport.left, THEME.AXIS_HEIGHT);
-            this.context.lineTo(screenViewport.left + screenViewport.width, THEME.AXIS_HEIGHT);
-            this.context.stroke();
+            // let screenViewport = this.transform.getScreenViewport();
+            // this.context.beginPath();
+            // this.context.moveTo(screenViewport.left, THEME.AXIS_HEIGHT);
+            // this.context.lineTo(screenViewport.left + screenViewport.width, THEME.AXIS_HEIGHT);
+            // this.context.stroke();
             this.context.restore();
         }
 
@@ -1346,8 +1420,21 @@
         constructor() {
             this.methodRegistry = new MethodRegistry();
             this.resultsEl = document.getElementById('searchResults');
+            this.inputEl = document.getElementById('search');
+            this.modalEl = document.getElementById('searchModal');
+            this.modalEl.addEventListener('click', () => {
+                this._close();
+            });
+            document.getElementById('searchPanel').addEventListener('click', event => {
+                event.stopPropagation();
+            });
             this.onSelected = () => {
             };
+        }
+
+        onIconClick() {
+            this.modalEl.style.display = "inline-block";
+            this.inputEl.focus();
         }
 
         onQuery(query) {
@@ -1370,13 +1457,23 @@
 
         createResultEl(method) {
             let resultEl = document.createElement('div');
-            resultEl.innerText = method.name;
+            resultEl.innerText = method.shortName;
             resultEl.classList.add('searchResultRow');
             resultEl.addEventListener('click', () => {
-                this.clearResults();
-                this.onSelected(method);
+                this._select(method)
             });
             return resultEl;
+        }
+
+        _close() {
+            this.modalEl.style.display = "none";
+        }
+
+        _select(method) {
+            this.inputEl.value = "";
+            this.clearResults();
+            this.onSelected(method);
+            this._close();
         }
     }
 
@@ -1447,6 +1544,10 @@
 
         onQuery(query) {
             this.searchController.onQuery(query);
+        }
+
+        onSearchIconClick() {
+            this.searchController.onIconClick();
         }
 
         onClick(event) {
@@ -1551,6 +1652,14 @@
             event.stopImmediatePropagation();
         }
     }, false);
+
+    document.getElementById('searchIcon').addEventListener('click', event => {
+        controller.onSearchIconClick();
+    });
+
+    document.getElementById('searchModal').addEventListener('mousewheel', event => {
+        event.preventDefault();
+    });
 </script>
 
 </body>
