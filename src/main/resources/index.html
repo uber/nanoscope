@@ -1399,12 +1399,6 @@
             // Draw axis from -inf to +inf. For some reason drawing from left to right doesn't work with large numbers.
             this.context.save();
             this.context.setTransform(1, 0, 0, 1, 0, 0);
-
-            // let screenViewport = this.transform.getScreenViewport();
-            // this.context.beginPath();
-            // this.context.moveTo(screenViewport.left, THEME.AXIS_HEIGHT);
-            // this.context.lineTo(screenViewport.left + screenViewport.width, THEME.AXIS_HEIGHT);
-            // this.context.stroke();
             this.context.restore();
         }
 
