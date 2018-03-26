@@ -9,6 +9,7 @@ import java.io.InputStream
 import java.net.MalformedURLException
 import java.net.URL
 import java.security.MessageDigest
+import java.util.*
 import java.util.zip.ZipInputStream
 
 data class Version(val major: Int, val minor: Int, val patch: Int) : Comparable<Version> {
@@ -242,14 +243,21 @@ class Nanoscope {
         }
 
         private fun displayTrace(traceFile: File) {
-            val traceDataString = traceFile.readText()
-            var html = this::class.java.classLoader.getResourceAsStream("index.html").bufferedReader().readText()
-            html = html.replaceFirst("TRACE_DATA_PLACEHOLDER", traceDataString)
-
             val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
             println("Building HTML... ($htmlPath)")
 
-            File(htmlPath).writeText(html)
+            this::class.java.classLoader.getResourceAsStream("index.html").buffered().use { htmlIn ->
+                val htmlScanner = Scanner(htmlIn).useDelimiter(">TRACE_DATA_PLACEHOLDER<")
+                File(htmlPath).outputStream().bufferedWriter().use { out ->
+                    out.write(htmlScanner.next())
+                    out.write(">")
+                    traceFile.inputStream().bufferedReader().use { traceIn ->
+                        traceIn.copyTo(out)
+                    }
+                    out.write("<")
+                    out.write(htmlScanner.next())
+                }
+            }
 
             println("Opening HTML...")
             Runtime.getRuntime().exec("open $htmlPath")
