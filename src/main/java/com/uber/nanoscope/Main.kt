@@ -4,7 +4,7 @@ import java.io.File
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
-val ROM_VERSION = "0.2.0"
+val ROM_VERSION = Version(0, 2, 0)
 val ROM_URL = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-rom-$ROM_VERSION.zip"
 
 /**
@@ -42,11 +42,11 @@ private fun ensureCompatibility() {
                 |
                 |    $ nanoscope flash""".trimMargin()
         } else {
-            val r = e.romVersion.compareTo(e.clientVersion)
+            val r = e.romVersion.compareTo(e.supportedRomVersion)
             if (r < 0) {
                 """Your Nanoscope ROM is out of date and incompatible with your client:
                     |    ROM Version: ${e.romVersion}
-                    |    Client Version: ${e.clientVersion}
+                    |    Supported Version: ${e.supportedRomVersion}
                     |
                     |To update your ROM, run the following:
                     |    $ brew update && brew upgrade nanoscope
@@ -55,7 +55,7 @@ private fun ensureCompatibility() {
             } else {
                 """Your Nanoscope client is out of date and incompatible with your ROM:
                     |    ROM Version: ${e.romVersion}
-                    |    Client Version: ${e.clientVersion}
+                    |    Supported Version: ${e.supportedRomVersion}
                     |
                     |To update your client, run the following:
                     |    $ brew update && brew upgrade nanoscope
