@@ -52,7 +52,7 @@ data class Version(val major: Int, val minor: Int, val patch: Int) : Comparable<
     }
 }
 
-class IncompatibleVersionError(val clientVersion: Version, val romVersion: Version?): RuntimeException()
+class IncompatibleVersionError(val supportedRomVersion: Version, val romVersion: Version?): RuntimeException()
 
 class Nanoscope {
 
@@ -89,18 +89,11 @@ class Nanoscope {
         private val homeDir = File(System.getProperty("user.home"))
         private val configDir = File(homeDir, ".nanoscope")
 
-        fun checkVersion() {
-            val clientVersion = getClientVersion()
-            val romVersion = getROMVersion() ?: throw IncompatibleVersionError(clientVersion, null)
-            if (clientVersion.major != romVersion.major
-                    || (clientVersion.major == 0 && clientVersion.minor != romVersion.minor)) {
-                throw IncompatibleVersionError(clientVersion, romVersion)
-            }
-        }
-
-        private fun getClientVersion(): Version {
-            Nanoscope::class.java.classLoader.getResourceAsStream("version.txt").bufferedReader().use {
-                return Version.fromString(it.readText().trim())
+        fun checkVersion(supportedVersion: Version) {
+            val romVersion = getROMVersion() ?: throw IncompatibleVersionError(supportedVersion, null)
+            if (supportedVersion.major != romVersion.major
+                    || (supportedVersion.major == 0 && supportedVersion.minor != romVersion.minor)) {
+                throw IncompatibleVersionError(supportedVersion, romVersion)
             }
         }
 

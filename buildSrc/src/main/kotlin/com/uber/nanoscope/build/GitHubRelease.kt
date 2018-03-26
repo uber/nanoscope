@@ -159,8 +159,8 @@ enum class IncrementType {
 
 private fun Version.increment(incrementType: IncrementType): Version {
     return when (incrementType) {
-        IncrementType.MAJOR -> copy(major = major + 1)
-        IncrementType.MINOR -> copy(minor = minor + 1)
+        IncrementType.MAJOR -> copy(major = major + 1, minor = 0, patch = 0)
+        IncrementType.MINOR -> copy(minor = minor + 1, patch = 0)
         IncrementType.PATCH -> copy(patch = patch + 1)
     }
 }
