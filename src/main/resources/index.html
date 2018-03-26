@@ -58,7 +58,7 @@
 
         .details-header {
             display: grid;
-            grid-template-columns: 1fr min-content;
+            grid-template-columns: min-content 1fr min-content;
             margin-bottom: 5px;
             overflow: hidden;
         }
@@ -75,8 +75,17 @@
             max-width: 325px;
         }
 
-        .details-focus {
+        #inclusive {
             grid-column: 2;
+            font-family: 'Roboto 12px', sans-serif;
+            align-self: center;
+            padding-left: 5px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, .3);
+        }
+
+        .details-focus {
+            grid-column: 3;
             background:
                     url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHN0eWxlPi5he3N0cm9rZS13aWR0aDo0O3N0cm9rZTojZmZmO308L3N0eWxlPjxnIGZpbGw9Im5vbmUiPjxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjEwIiBmaWxsPSIjZmZmIi8+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMTkiIGNsYXNzPSJhIi8+PHBhdGggZD0ibTUxIDMyaDkiIGNsYXNzPSJhIi8+PHBhdGggZD0ibTMyIDEzdi05IiBjbGFzcz0iYSIvPjxwYXRoIGQ9Im0zMiA2MHYtOSIgY2xhc3M9ImEiLz48cGF0aCBkPSJtNCAzMmg5IiBjbGFzcz0iYSIvPjwvZz48L3N2Zz4=")
                     no-repeat
@@ -162,16 +171,12 @@
             grid-row: 3;
         }
 
-        .call-inclusive {
+        .call-exclusive {
             grid-row: 4;
         }
 
-        .call-exclusive {
-            grid-row: 5;
-        }
-
         .call-percent {
-            grid-row: 6;
+            grid-row: 5;
         }
 
         .method-total-duration {
@@ -296,6 +301,7 @@
         <div class="details" id="details">
             <div class="details-header">
                 <div class="details-name">DisplayEventReceiver.dispatchVsync</div>
+                <div id="inclusive">(98.234ms)</div>
                 <div class="details-focus"></div>
             </div>
 
@@ -303,7 +309,6 @@
                 <div class="details-sub-header details-call-header">CALL STATS</div>
                 <div class="details-call details-label call-start">Start</div><div class="details-call details-value call-start">0.758</div>
                 <div class="details-call details-label call-end">End</div><div class="details-call details-value call-end">100.726</div>
-                <div class="details-call details-label call-inclusive">Inclusive</div><div class="details-call details-value call-inclusive">98.234</div>
                 <div class="details-call details-label call-exclusive">Exclusive</div><div class="details-call details-value call-exclusive">7.498</div>
                 <div class="details-call details-label call-percent">% of whole</div><div class="details-call details-value call-percent">0.035%</div>
 
@@ -881,7 +886,7 @@
 
             this.callStartEl = this.el.querySelector('.call-start.details-value');
             this.callEndEl = this.el.querySelector('.call-end.details-value');
-            this.callInclusiveEl = this.el.querySelector('.call-inclusive.details-value');
+            this.callInclusiveEl = document.getElementById('inclusive');
             this.callExclusiveEl = this.el.querySelector('.call-exclusive.details-value');
             this.callPercentEl = this.el.querySelector('.call-percent.details-value');
 
@@ -921,7 +926,7 @@
             let callDuration = call.end - call.start;
             this.callStartEl.innerText = DetailsController._formatNs(call.start);
             this.callEndEl.innerText = DetailsController._formatNs(call.end);
-            this.callInclusiveEl.innerText = DetailsController._formatDuration(callDuration);
+            this.callInclusiveEl.innerText = `(${DetailsController._formatDuration(callDuration)})`;
             this.callExclusiveEl.innerText = '<todo>';
 
             let totalTraceDuration = this.methodRegistry.maxTimestamp - this.methodRegistry.minTimestamp;
