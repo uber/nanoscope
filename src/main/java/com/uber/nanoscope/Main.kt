@@ -89,7 +89,7 @@ abstract class VersionedHandler: Runnable {
 class StartHandler(private val args: List<String>): VersionedHandler() {
 
     override fun doRun() {
-        val trace = Nanoscope.startTracing()
+        val trace = Nanoscope.startTracing(getPackageName())
         println("Tracing... (Press ENTER to stop)")
         while (true) {
             if (System.`in`.read() == 10) {
@@ -97,6 +97,31 @@ class StartHandler(private val args: List<String>): VersionedHandler() {
             }
         }
         trace.stop()
+    }
+
+    private fun getPackageName(): String? {
+        if (args.isEmpty()) {
+            return null
+        }
+
+        val usage = "usage: nanoscope start [--package=com.example]"
+        if (args.size != 1) {
+            println(usage)
+            exitProcess(1)
+        }
+
+        val parts = args[0].split('=')
+        if (parts.size != 2) {
+            println(usage)
+            exitProcess(1)
+        }
+
+        if (parts[0] != "--package") {
+            println(usage)
+            exitProcess(1)
+        }
+
+        return parts[1]
     }
 }
 

@@ -151,11 +151,11 @@ class Nanoscope {
             displayTrace(nanotraceFile)
         }
 
-        fun startTracing(): Trace {
+        fun startTracing(packageName: String?): Trace {
             Adb.root()
             val filename = "out.txt"
-            val foregroundPackage = Adb.getForegroundPackage()
-            return Trace(foregroundPackage, filename)
+            val tracedPackage = packageName ?: Adb.getForegroundPackage()
+            return Trace(tracedPackage, filename)
         }
 
         fun flashDevice(romUrl: String) {
