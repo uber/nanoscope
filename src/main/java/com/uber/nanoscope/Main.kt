@@ -4,7 +4,7 @@ import java.io.File
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
-val ROM_VERSION = "0.1.0"
+val ROM_VERSION = "0.2.0"
 val ROM_URL = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-rom-$ROM_VERSION.zip"
 
 /**
@@ -63,13 +63,8 @@ private fun ensureCompatibility() {
             }
         }
 
-        println("""Warning - versions may be incompatible:
-            |ROM Version: ${e.romVersion}
-            |Client Version: ${e.clientVersion}
-        """.trimMargin())
-        // Don't enforce version compatibility for now.
-        // println(reason)
-        // exitProcess(1)
+         println(reason)
+         exitProcess(1)
     }
 }
 

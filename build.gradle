@@ -24,7 +24,7 @@ repositories {
     mavenCentral()
 }
 
-version="0.1.0"
+version="0.2.0"
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
