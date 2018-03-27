@@ -68,13 +68,16 @@ class Nanoscope {
             println("Flushing trace data... (Do not close app)")
             Adb.setSystemProperty("dev.nanoscope", "\'\'")
             val remotePath = "/data/data/$packageName/files/$filename"
+            val remoteTmpPath = "$remotePath.tmp"
             while (!Adb.fileExists(remotePath)) {
+                val linesWritten = Adb.lineCount(remoteTmpPath)
+                print("\rEvents flushed: $linesWritten")
                 Thread.sleep(500)
             }
 
             val localFile = File.createTempFile("nanoscope", ".txt")
             val localPath = localFile.absolutePath
-            println("Pulling trace file... ($localPath)")
+            println("\rPulling trace file... ($localPath)")
             Adb.pullFile(remotePath, localPath)
 
             displayTrace(localFile)

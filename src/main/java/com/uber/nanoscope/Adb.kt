@@ -32,6 +32,11 @@ class Adb {
             return output == "1"
         }
 
+        fun lineCount(path: String): Int? {
+            val output = "wc -l < $path".adbShell().inputStream.bufferedReader().readText().trim()
+            return output.toIntOrNull()
+        }
+
         fun root() {
             "adb root".run().waitFor()
         }
