@@ -36,7 +36,6 @@ private fun ensureCompatibility() {
     try {
         Nanoscope.checkVersion(ROM_VERSION)
     } catch (e: IncompatibleVersionError) {
-        @Suppress("UNUSED_VARIABLE")
         val reason = if (e.romVersion == null) {
             """The OS running on your device is not supported. In order to install the Nanoscope ROM, run the following:
                 |
@@ -68,14 +67,6 @@ private fun ensureCompatibility() {
          println(reason)
          exitProcess(1)
     }
-
-    val reason = """The OS running on your device is not supported. In order to install the Nanoscope ROM, run the following:
-                |
-                $FLASH_WARNING_MESSAGE
-                |
-                |    $ nanoscope flash""".trimMargin()
-
-    println(reason)
 }
 
 private fun acceptConfirmation(warningMessage: String?): Boolean {
