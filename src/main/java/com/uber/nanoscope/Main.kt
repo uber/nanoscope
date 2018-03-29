@@ -6,9 +6,10 @@ import kotlin.system.exitProcess
 
 val ROM_VERSION = "0.2.0"
 val ROM_URL = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-rom-$ROM_VERSION.zip"
-val FLASH_WARNING_MESSAGE = """ |###################################################
+val FLASH_WARNING_MESSAGE = """ |
+                                |###################################################
                                 |# WARNING: This will wipe all of your phone data! #
-                                |###################################################"""
+                                |###################################################""".trimMargin()
 
 /**
  * Represents available subcommands.
@@ -39,7 +40,7 @@ private fun ensureCompatibility() {
         val reason = if (e.romVersion == null) {
             """The OS running on your device is not supported. In order to install the Nanoscope ROM, run the following:
                 |
-                ${FLASH_WARNING_MESSAGE.trimIndent()}
+                $FLASH_WARNING_MESSAGE
                 |
                 |    $ nanoscope flash""".trimMargin()
         } else {
@@ -67,17 +68,25 @@ private fun ensureCompatibility() {
          println(reason)
          exitProcess(1)
     }
+
+    val reason = """The OS running on your device is not supported. In order to install the Nanoscope ROM, run the following:
+                |
+                $FLASH_WARNING_MESSAGE
+                |
+                |    $ nanoscope flash""".trimMargin()
+
+    println(reason)
 }
 
 private fun acceptConfirmation(warningMessage: String?): Boolean {
-    println("${warningMessage?.trimMargin()}\n")
+    println("$warningMessage\n")
 
     print("Are you sure you want to continue? [y/N]: ")
 
     val response = readLine()!!.trim().toLowerCase()
 
     return when (response) {
-        "y", "e", "s", "yes" -> true
+        "y", "yes" -> true
         else -> false
     }
 }
@@ -100,8 +109,6 @@ abstract class ConfirmationHandler: Runnable {
         if (acceptConfirmation(getWarningMessage())) {
             doRun()
         }
-
-        exitProcess(0)
     }
 
     abstract fun getWarningMessage(): String?
