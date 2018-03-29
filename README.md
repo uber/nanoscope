@@ -26,6 +26,19 @@ Tracing... (Press ENTER to stop)
 **Open existing trace file**
 
 ```bash
-// Supports Nanoscope and Chrome trace files
+# Supports Nanoscope and Chrome trace files
 $ nanoscope open <filename>
+```
+
+## Upgrade
+
+**Client**
+```
+$ brew update && brew upgrade nanoscope
+```
+
+**ROM**
+```
+$ brew update && brew upgrade nanoscope
+$ nanoscope flash
 ```
