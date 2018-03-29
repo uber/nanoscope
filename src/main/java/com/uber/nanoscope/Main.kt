@@ -4,7 +4,7 @@ import java.io.File
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
-val ROM_VERSION = Version(0, 2, 0)
+val ROM_VERSION = Version(0, 2, 1)
 val ROM_URL = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-rom-$ROM_VERSION.zip"
 val FLASH_WARNING_MESSAGE = """ |
                                 |###################################################
