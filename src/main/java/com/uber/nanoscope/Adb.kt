@@ -42,7 +42,12 @@ class Adb {
         }
 
         fun getROMVersion(): String {
-            return "adb shell getprop ro.build.nanoscope".run().inputStream.bufferedReader().readText().trim()
+            val proc = "adb shell getprop ro.build.nanoscope".run()
+            val errOutput = proc.errorStream.bufferedReader().readText().trim()
+            if ("no devices/emulators found" in errOutput) {
+                throw AdbNoDevicesFoundError()
+            }
+            return proc.inputStream.bufferedReader().readText().trim()
         }
     }
 }
@@ -54,3 +59,5 @@ private fun String.adbShell(): Process {
 private fun String.run(): Process {
     return Runtime.getRuntime().exec(this)
 }
+
+class AdbNoDevicesFoundError: RuntimeException()

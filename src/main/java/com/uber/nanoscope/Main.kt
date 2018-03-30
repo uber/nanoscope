@@ -35,6 +35,9 @@ enum class Subcommand(
 private fun ensureCompatibility() {
     try {
         Nanoscope.checkVersion(ROM_VERSION)
+    } catch (e: AdbNoDevicesFoundError) {
+        println("No adb-connected devices found.")
+        exitProcess(1)
     } catch (e: IncompatibleVersionError) {
         val reason = if (e.romVersion == null) {
             """The OS running on your device is not supported. In order to install the Nanoscope ROM, run the following:
