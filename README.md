@@ -2,6 +2,8 @@
 
 An extremely accurate Android method tracing tool.
 
+![](nanoscope.gif?raw=true)
+
 ## Installation
 
 **Install the `nanoscope` command**
