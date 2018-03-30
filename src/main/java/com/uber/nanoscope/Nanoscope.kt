@@ -71,7 +71,9 @@ class Nanoscope {
             val remoteTmpPath = "$remotePath.tmp"
             while (!Adb.fileExists(remotePath)) {
                 val linesWritten = Adb.lineCount(remoteTmpPath)
-                print("\rEvents flushed: $linesWritten")
+                if (linesWritten != null) {
+                    print("\rEvents flushed: $linesWritten")
+                }
                 Thread.sleep(500)
             }
 
