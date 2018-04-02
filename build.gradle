@@ -59,4 +59,14 @@ task('deleteReleaseDrafts') {
     }
 }
 
+applicationDistribution.from("wrapper/nanoscopew") {
+    into("bin")
+    fileMode = 0755
+}
+
+[installDist, distZip].forEach { task ->
+    task.rename("^nanoscope\$", "_nanoscope")
+    task.rename("^nanoscopew\$", "nanoscope")
+}
+
 applicationDefaultJvmArgs = ["-Xmx8g"]

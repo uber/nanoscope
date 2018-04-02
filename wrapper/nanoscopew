@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+PRG="$0"
+# Need this for relative symlinks.
+while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=`dirname "$PRG"`"/$link"
+    fi
+done
+
+LOCAL_BIN=$(dirname "$PRG")
+WRAPPED_PRG="$LOCAL_BIN/_nanoscope"
+CONFIG_DIR="$HOME/.nanoscope"
+ENV_FILE="$CONFIG_DIR/.env"
+PRE_FILE="$CONFIG_DIR/pre-command"
+
+if [ -f "$ENV_FILE" ]; then
+    export $(cat ${ENV_FILE} | grep -v ^# | xargs)
+fi
+
+if [ -f "$PRE_FILE" ]; then
+    ${PRE_FILE} $@
+fi
+
+exec ${WRAPPED_PRG} $@
