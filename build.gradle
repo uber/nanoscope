@@ -59,4 +59,9 @@ task('deleteReleaseDrafts') {
     }
 }
 
+applicationDistribution.from("wrapper/nanoscopew") {
+    into("bin")
+    fileMode = 0755
+}
+
 applicationDefaultJvmArgs = ["-Xmx8g"]
