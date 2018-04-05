@@ -13,6 +13,9 @@ $ brew install nanoscope
 ```
 
 **Flash ADB-connected phone with the Nanoscope ROM**
+
+*IMPORTANT: This will only work with a Nexus 6P - do not attempt to flash any other device*
+
 ```bash
 $ nanoscope flash
 ```
