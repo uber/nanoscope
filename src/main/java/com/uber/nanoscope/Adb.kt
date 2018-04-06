@@ -41,6 +41,10 @@ class Adb {
             "adb root".run().waitFor()
         }
 
+        fun getDeviceHardware(): String {
+            return "getprop ro.hardware".adbShell().inputStream.bufferedReader().readText().trim()
+        }
+
         fun getROMVersion(): String {
             val proc = "adb shell getprop ro.build.nanoscope".run()
             val errOutput = proc.errorStream.bufferedReader().readText().trim()

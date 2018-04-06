@@ -158,6 +158,9 @@ class Nanoscope {
         }
 
         fun flashDevice(romUrl: String) {
+            if (Adb.getDeviceHardware() != "angler") {
+                throw FlashException("Sorry, Nexus 6p is currently the only supported device.")
+            }
             Adb.root()
             val md5 = MessageDigest.getInstance("MD5").digest(romUrl.toByteArray())
             val key = Base64.encode(md5)
