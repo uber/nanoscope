@@ -28,13 +28,6 @@ $ nanoscope start
 Tracing... (Press ENTER to stop)
 ```
 
-**Open existing trace file**
-
-```bash
-# Supports Nanoscope and Chrome trace files
-$ nanoscope open <filename>
-```
-
 ## Upgrade
 
 **Client**
