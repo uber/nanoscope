@@ -14,7 +14,7 @@ For more information on motivation and architecture, check out the [wiki](https:
 
 **Install the `nanoscope` command**
 ```bash
-$ brew tap uber/nanoscope git@github.com:uber/homebrew-nanoscope.git
+$ brew tap uber/nanoscope
 $ brew install nanoscope
 ```
 
