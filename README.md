@@ -18,9 +18,11 @@ $ brew tap uber/nanoscope git@github.com:uber/homebrew-nanoscope.git
 $ brew install nanoscope
 ```
 
-**Flash ADB-connected phone with the Nanoscope ROM**
+**Flash ADB-connected phone with the Nanoscope OS**
 
 *IMPORTANT: This will only work with a Nexus 6P - do not attempt to flash any other device*
+
+*IMPORTANT: This command installs a custom operating system onto the device. There is no way to undo this operation.*
 
 ```bash
 $ nanoscope flash
