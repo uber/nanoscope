@@ -195,41 +195,11 @@ class Nanoscope private constructor() {
 
             val release = GitHubPublisher(distZip, version).publish()
             val sha256 = DatatypeConverter.printHexBinary(MessageDigest.getInstance("SHA-256").digest(release.bytes)).toLowerCase()
-            // Point to pre-defined location on S3 instead of GitHub release. See note below.
-            // val downloadUrl = release.downloadUrl
-            val downloadUrl = "https://s3-us-west-2.amazonaws.com/uber-common-public/nanoscope/nanoscope-$version.zip"
+            val downloadUrl = release.downloadUrl
 
             homebrewRepo.update(version, downloadUrl, sha256)
             homebrewRepo.commit("Update version to $version.")
             homebrewRepo.push()
-
-            println("""
-
-                ====================================================================
-                ========================== IMPORTANT ===============================
-                ====================================================================
-
-                You've just successfully deployed a release of the Nanoscope client.
-                BUT a brew update will fail until you follow these steps:
-
-                Upload this zip file:
-
-                    ${release.downloadUrl}
-
-                ... to this location, and be sure to make the file PUBLIC:
-
-                    $downloadUrl
-
-                Why is this required?
-                Before Nanoscope's public release, Homebrew will not be able to
-                access Nanoscope GitHub releases as the repo is private. So for now
-                we're pointing our Homebrew formula to a predefined location on S3.
-                Once we've made the repo public we can remove this step and delete
-                this warning.
-
-                ====================================================================
-                ====================================================================
-            """.trimIndent())
         }
 
         @JvmStatic

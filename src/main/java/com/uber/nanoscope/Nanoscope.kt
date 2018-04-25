@@ -22,6 +22,7 @@ import com.sun.org.apache.xml.internal.security.utils.Base64
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.net.HttpURLConnection
 import java.net.MalformedURLException
 import java.net.URL
 import java.security.MessageDigest
@@ -219,13 +220,13 @@ class Nanoscope {
             }
 
             val conn = try {
-                url.openConnection()
+                url.openConnection() as HttpURLConnection
             } catch (e: IOException) {
                 throw FlashException("Failed to open connection: ${e.message}")
             }
 
-            if (conn.contentType != "application/zip") {
-                throw FlashException("URL must be a zip file: $romUrl.\nFound Content-Type: ${conn.contentType}.")
+            if (conn.contentType !in listOf("application/zip", "application/octet-stream")) {
+                throw FlashException("URL must be a zip file: ${conn.url}.\nFound Content-Type: ${conn.contentType}.")
             }
 
             try {
