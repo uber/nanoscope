@@ -43,7 +43,7 @@ Tracing... (Press ENTER to stop)
 $ brew upgrade nanoscope
 ```
 
-**ROM**
+**OS**
 ```
 $ brew upgrade nanoscope
 $ nanoscope flash
