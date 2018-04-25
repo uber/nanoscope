@@ -13,6 +13,7 @@ For more information on motivation and architecture, check out the [wiki](https:
 ## Installation
 
 **Install the `nanoscope` command**
+
 ```bash
 $ brew tap uber/nanoscope
 $ brew install nanoscope
@@ -20,11 +21,18 @@ $ brew install nanoscope
 
 **Flash ADB-connected phone with the Nanoscope OS**
 
+Nanoscope only works with devices running the custom Nanoscope operating system. You can use the following command to replace your stock Android OS with the Nanoscope OS.
+
 *IMPORTANT: This will only work with a Nexus 6P - do not attempt to flash any other device*
 
 *IMPORTANT: This command installs a custom operating system onto the device. There is no way to undo this operation.*
 
 ```bash
+# Prerequisites
+#   - Nexus 6p is the only supported device at this time
+#   - OEM Unlocking is enabled (Settings -> Developer Options -> OEM unlocking)
+#   - Device is connected via ADB
+
 $ nanoscope flash
 ```
 
