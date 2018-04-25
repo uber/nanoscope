@@ -40,12 +40,12 @@ Tracing... (Press ENTER to stop)
 
 **Client**
 ```
-$ brew update && brew upgrade nanoscope
+$ brew upgrade nanoscope
 ```
 
 **ROM**
 ```
-$ brew update && brew upgrade nanoscope
+$ brew upgrade nanoscope
 $ nanoscope flash
 ```
 
