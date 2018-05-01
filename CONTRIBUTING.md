@@ -1,6 +1,6 @@
 # Contributing
 
-To contribute, simply open a pull request in the appropriate repo:
+To contribute, simply open a pull request in the appropriate repo. Please squash your commits!
 
 * [Nanoscope ROM](https://github.com/uber/nanoscope-art)
 * [Nanoscope Command-Line Tool](https://github.com/uber/nanoscope)
