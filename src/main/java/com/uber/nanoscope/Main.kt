@@ -103,7 +103,7 @@ private fun acceptConfirmation(warningMessage: String?): Boolean {
 
 abstract class VersionedHandler: Runnable {
 
-    override final fun run() {
+    final override fun run() {
         ensureCompatibility()
         doRun()
     }
@@ -188,9 +188,9 @@ class FlashHandler(private val args: List<String>): ConfirmationHandler() {
 /**
  * Handler for "nanoscope open" subcommand.
  */
-class OpenHandler(private val args: List<String>): VersionedHandler() {
+class OpenHandler(private val args: List<String>): Runnable {
 
-    override fun doRun() {
+    override fun run() {
         if (args.isEmpty()) {
             println("usage: nanoscope open <tracefile>")
             exitProcess(1)
