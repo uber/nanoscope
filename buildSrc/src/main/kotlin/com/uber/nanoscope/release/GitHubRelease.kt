@@ -14,24 +14,22 @@
  * limitations under the License.
  */
 
-package com.uber.nanoscope.build
+package com.uber.nanoscope.release
 
 import com.github.kittinunf.fuel.core.Request
-import com.github.kittinunf.fuel.httpDelete
-import com.github.kittinunf.fuel.httpGet
 import com.github.kittinunf.fuel.httpPost
 import com.github.kittinunf.fuel.moshi.responseObject
 import com.squareup.moshi.Moshi
-import org.gradle.api.InvalidUserDataException
+import com.uber.nanoscope.release.IncrementType.MAJOR
+import com.uber.nanoscope.release.IncrementType.MINOR
+import com.uber.nanoscope.release.IncrementType.PATCH
 import java.io.File
-import java.security.MessageDigest
 import javax.annotation.CheckReturnValue
-import javax.xml.bind.DatatypeConverter
 
-private val GITHUB_TOKEN: String? = System.getenv("GITHUB_ACCESS_TOKEN")
+internal val GITHUB_TOKEN: String? = System.getenv("GITHUB_ACCESS_TOKEN")
 
-private data class GitHubRelease(val downloadUrl: String, val bytes: ByteArray)
-private data class Version(val major: Int, val minor: Int, val patch: Int) {
+internal class GitHubRelease(val downloadUrl: String, val bytes: ByteArray)
+internal data class Version(val major: Int, val minor: Int, val patch: Int) {
 
     override fun toString(): String {
         return "$major.$minor.$patch"
@@ -52,11 +50,11 @@ private fun String.exec(): Process {
             .start()
 }
 
-private fun Request.authGitHub(): Request {
+internal fun Request.authGitHub(): Request {
     return this.header("Authorization" to "token $GITHUB_TOKEN")
 }
 
-private fun Request.json(): Map<String, Any> {
+internal fun Request.json(): Map<String, Any> {
     return try {
         responseObject<Map<String, Any>>()
                 .third
@@ -66,7 +64,7 @@ private fun Request.json(): Map<String, Any> {
     }
 }
 
-private class GitHubPublisher(
+internal class GitHubPublisher(
         private val distZip: File,
         private val version: Version) {
 
@@ -106,7 +104,7 @@ private class GitHubPublisher(
     }
 }
 
-private class HomebrewRepo private constructor(private val dir: File) {
+internal class HomebrewRepo private constructor(private val dir: File) {
 
     private val formulaFile = File(dir, "nanoscope.rb")
 
@@ -173,55 +171,10 @@ enum class IncrementType {
     MAJOR, MINOR, PATCH
 }
 
-private fun Version.increment(incrementType: IncrementType): Version {
+internal fun Version.increment(incrementType: IncrementType): Version {
     return when (incrementType) {
-        IncrementType.MAJOR -> copy(major = major + 1, minor = 0, patch = 0)
-        IncrementType.MINOR -> copy(minor = minor + 1, patch = 0)
-        IncrementType.PATCH -> copy(patch = patch + 1)
-    }
-}
-
-class Nanoscope private constructor() {
-
-    companion object {
-
-        @JvmStatic
-        fun release(distZip: File, incrementType: IncrementType) {
-            ensureGitHubToken()
-            val homebrewRepo = HomebrewRepo.init()
-            homebrewRepo.ensureClean()
-
-            val version = homebrewRepo.readVersion().increment(incrementType)
-
-            val release = GitHubPublisher(distZip, version).publish()
-            val sha256 = DatatypeConverter.printHexBinary(MessageDigest.getInstance("SHA-256").digest(release.bytes)).toLowerCase()
-            val downloadUrl = release.downloadUrl
-
-            homebrewRepo.update(version, downloadUrl, sha256)
-            homebrewRepo.commit("Update version to $version.")
-            homebrewRepo.push()
-        }
-
-        @JvmStatic
-        fun deleteReleaseDrafts() {
-            ensureGitHubToken()
-            "https://api.github.com/repos/uber/nanoscope/releases"
-                    .httpGet()
-                    .authGitHub()
-                    .responseObject<List<Map<String, Any>>>().third.get()
-                    .filter { it["draft"] == true }
-                    .forEach {
-                        it["url"].toString()
-                                .httpDelete()
-                                .authGitHub()
-                                .response()
-                    }
-        }
-
-        private fun ensureGitHubToken() {
-            if (GITHUB_TOKEN.isNullOrEmpty()) {
-                throw InvalidUserDataException("GITHUB_ACCESS_TOKEN not set.")
-            }
-        }
+        MAJOR -> copy(major = major + 1, minor = 0, patch = 0)
+        MINOR -> copy(minor = minor + 1, patch = 0)
+        PATCH -> copy(patch = patch + 1)
     }
 }

@@ -1,8 +1,8 @@
-import com.uber.nanoscope.build.IncrementType
-import com.uber.nanoscope.build.Nanoscope
+import com.uber.nanoscope.release.IncrementType
+import com.uber.nanoscope.release.Nanoscope
 
 buildscript {
-    ext.kotlin_version = '1.1.50'
+    ext.kotlin_version = '1.2.41'
 
     repositories {
         mavenCentral()
@@ -13,7 +13,7 @@ buildscript {
 }
 
 apply plugin: 'java'
-apply plugin: 'kotlin'
+apply plugin: 'org.jetbrains.kotlin.jvm'
 apply plugin: 'application'
 
 mainClassName = "com.uber.nanoscope.MainKt"
@@ -25,7 +25,7 @@ repositories {
 }
 
 dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jre8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
     compile "com.squareup.moshi:moshi-kotlin:1.5.0"
 }
