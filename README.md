@@ -19,6 +19,8 @@ $ brew tap uber/nanoscope
 $ brew install nanoscope
 ```
 
+## Nanoscope Emulator / Devices
+
 **Launch Nanoscope Emulator**
 
 ```bash
