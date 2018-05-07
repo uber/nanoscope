@@ -21,7 +21,8 @@ import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
 val ROM_VERSION = Version(0, 2, 2)
-val ROM_URL = "https://github.com/uber/nanoscope-art/releases/download/0.2.2/nanoscope-rom-$ROM_VERSION.zip"
+val EMULATOR_URL = "https://github.com/uber/nanoscope-art/releases/download/$ROM_VERSION/nanoscope-emulator-$ROM_VERSION.zip"
+val ROM_URL = "https://github.com/uber/nanoscope-art/releases/download/$ROM_VERSION/nanoscope-rom-$ROM_VERSION.zip"
 val FLASH_WARNING_MESSAGE = """ |
                                 |###################################################
                                 |# WARNING: This will wipe all of your phone data! #
@@ -34,6 +35,7 @@ enum class Subcommand(
         private val handlerClass: KClass<out Runnable>,
         private val help: String) {
     START(StartHandler::class, "Starts tracing on adb-connected device."),
+    EMULATOR(EmulatorHandler::class, "Launches a Nanoscope emulator."),
     FLASH(FlashHandler::class, "Flashes adb-connected device with Nanoscope image."),
     OPEN(OpenHandler::class, "Opens a trace file with the Nanoscope Visualizer. Currently support Nanoscope trace file and Chrome trace file formats");
 
@@ -164,6 +166,21 @@ class StartHandler(private val args: List<String>): VersionedHandler() {
         }
 
         return parts[1]
+    }
+}
+
+/**
+ * Handler for "nanoscope emulator" subcommand.
+ */
+class EmulatorHandler(private val args: List<String>): Runnable {
+
+    override fun run() {
+        try {
+            Nanoscope.launchEmulator(EMULATOR_URL)
+        } catch (e: FlashException) {
+            println(e.message)
+            exitProcess(1)
+        }
     }
 }
 

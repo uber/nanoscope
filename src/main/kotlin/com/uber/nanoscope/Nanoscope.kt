@@ -174,6 +174,29 @@ class Nanoscope {
             return Trace(tracedPackage, filename)
         }
 
+        fun launchEmulator(emulatorUrl: String) {
+            val md5 = MessageDigest.getInstance("MD5").digest(emulatorUrl.toByteArray())
+            val key = Base64.encode(md5)
+            val outDir = File(configDir, "roms/$key")
+
+            downloadZipIfNecessary(outDir, emulatorUrl)
+
+            val launchScript = File(outDir, "emulator.sh")
+            if (!launchScript.exists()) {
+                throw FlashException("Invalid Nanoscope emulator. emulator.sh script does not exist.")
+            }
+
+            launchScript.setExecutable(true)
+
+            println("Launching emulator...")
+
+            ProcessBuilder("./emulator.sh")
+                    .directory(outDir)
+                    .inheritIO()
+                    .start()
+                    .waitFor()
+        }
+
         fun flashDevice(romUrl: String) {
             if (Adb.getDeviceHardware() != "angler") {
                 throw FlashException("Sorry, Nexus 6p is currently the only supported device.")
@@ -183,7 +206,7 @@ class Nanoscope {
             val key = Base64.encode(md5)
             val outDir = File(configDir, "roms/$key")
 
-            downloadIfNecessary(outDir, romUrl)
+            downloadZipIfNecessary(outDir, romUrl)
 
             val installScript = File(outDir, "install.sh")
             if (!installScript.exists()) {
@@ -204,19 +227,19 @@ class Nanoscope {
             }
         }
 
-        private fun downloadIfNecessary(outDir: File, romUrl: String) {
+        private fun downloadZipIfNecessary(outDir: File, zipUrl: String) {
             val downloadSuccessFile = File(outDir, "SUCCESS")
             if (downloadSuccessFile.exists()) {
-                println("ROM already downloaded: $outDir...")
+                println("Zip already downloaded: $outDir...")
                 return
             }
 
             outDir.deleteRecursively()
 
             val url = try {
-                URL(romUrl)
+                URL(zipUrl)
             } catch (e: MalformedURLException) {
-                throw FlashException("Invalid URL: $romUrl")
+                throw FlashException("Invalid URL: $zipUrl")
             }
 
             val conn = try {
@@ -230,15 +253,15 @@ class Nanoscope {
             }
 
             try {
-                downloadROM(outDir, conn.inputStream.buffered())
+                downloadZip(outDir, conn.inputStream.buffered())
             } catch (e: IOException) {
-                throw FlashException("Failed to download ROM: ${e.message}")
+                throw FlashException("Failed to download zip: ${e.message}")
             }
 
             downloadSuccessFile.createNewFile()
         }
 
-        private fun downloadROM(outDir: File, `in`: InputStream) {
+        private fun downloadZip(outDir: File, `in`: InputStream) {
             println("Downloading to $outDir...")
 
             outDir.mkdirs()
@@ -249,6 +272,7 @@ class Nanoscope {
                     if (entry.isDirectory) {
                         file.mkdirs()
                     } else {
+                        file.parentFile.mkdirs()
                         println("Downloading: ${entry.name}...")
                         file.outputStream().buffered().use { out ->
                             zipIn.copyTo(out)
