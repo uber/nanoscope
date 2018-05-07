@@ -44,6 +44,12 @@ $ nanoscope start
 Tracing... (Press ENTER to stop)
 ```
 
+**Trace a specific app**
+```bash
+$ nanoscope start --package=com.example.app
+Tracing... (Press ENTER to stop)
+```
+
 ## Upgrade
 
 **Client**
