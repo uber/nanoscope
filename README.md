@@ -28,6 +28,7 @@ Nanoscope only works with the Nanoscope Emulator or with a device that's running
 ```bash
 # Prerequisites
 #   - $ANDROID_HOME environment variable is set
+#   - macOS
 
 $ nanoscope emulator
 ```
