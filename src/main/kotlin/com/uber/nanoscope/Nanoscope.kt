@@ -99,7 +99,7 @@ class Nanoscope {
             println("\rPulling trace file... ($localPath)")
             Adb.pullFile(remotePath, localPath)
 
-            displayTrace(localFile)
+            displayTrace(localFile, null, null)
         }
     }
 
@@ -124,7 +124,7 @@ class Nanoscope {
             }
         }
 
-        fun openTrace(file: File) {
+        fun openTrace(file: File, sampleFile : File, stateFile : File) {
             val adapter = Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(OpenHandler.TraceEvent::class.java)
             val events = sortedSetOf<OpenHandler.Event>()
             var nanotraceFile = file
@@ -164,7 +164,7 @@ class Nanoscope {
                 }
             }
 
-            displayTrace(nanotraceFile)
+            displayTrace(nanotraceFile, sampleFile, stateFile)
         }
 
         fun startTracing(packageName: String?): Trace {
@@ -284,7 +284,7 @@ class Nanoscope {
             }
         }
 
-        private fun displayTrace(traceFile: File) {
+        private fun displayTrace(traceFile: File, sampleFile: File?, stateFile: File?) {
             val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
             println("Building HTML... ($htmlPath)")
 
@@ -297,6 +297,26 @@ class Nanoscope {
                         traceIn.copyTo(out)
                     }
                     out.write("<")
+                    htmlScanner.skip(">TRACE_DATA_PLACEHOLDER<")
+                    if (sampleFile != null && sampleFile.exists() && sampleFile.length() != 0L) {
+                        htmlScanner.useDelimiter(">SAMPLE_DATA_PLACEHOLDER<")
+                        out.write(htmlScanner.next())
+                        out.write(">")
+                        sampleFile.inputStream().bufferedReader().use { sampleIn ->
+                            sampleIn.copyTo(out)
+                        }
+                        out.write("<")
+                        htmlScanner.skip(">SAMPLE_DATA_PLACEHOLDER<")
+                    }
+                    if (stateFile != null && stateFile.exists() && stateFile.length() != 0L) {
+                        htmlScanner.useDelimiter(">STATE_DATA_PLACEHOLDER<")
+                        out.write(htmlScanner.next())
+                        out.write(">")
+                        stateFile.inputStream().bufferedReader().use { stateIn ->
+                            stateIn.copyTo(out)
+                        }
+                        out.write("<")
+                    }
                     out.write(htmlScanner.next())
                 }
             }
@@ -304,6 +324,7 @@ class Nanoscope {
             println("Opening HTML...")
             Runtime.getRuntime().exec("open $htmlPath")
         }
+
     }
 }
 
