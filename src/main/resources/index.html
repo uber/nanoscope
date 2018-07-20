@@ -41,7 +41,7 @@ limitations under the License.
             position: relative;
             grid-row: 2;
             grid-column: 1;
-            height: 50px;
+            height: 150px;
             width: 100%;
         }
 
@@ -1362,9 +1362,12 @@ limitations under the License.
 
     class Sample {
 
-        constructor(wallTime, cpuTime) {
+        constructor(wallTime, cpuTime, majPF, minPF, ctxSwitch) {
             this.wallTime = wallTime;
             this.cpuTime = cpuTime;
+            this.majPF = majPF;
+            this.minPF = minPF;
+            this.ctxSwitch = ctxSwitch;
         }
     }
 
@@ -1374,20 +1377,40 @@ limitations under the License.
             this.array = [];
             this.firstWallTime = -1;
             this.firstCpuTime = -1;
+            this.firstMinPF = -1;
+            this.firstMajPF = -1;
+            this.firstCtxSwitch = -1;
+            this.maxCtxSwitch = -1;
+            this.maxPF = -1;
             string.split("\n").forEach(s => {
                 let a = s.split(", ");
                 if (a.length >= 2) {
                     let wallTime = parseInt(a[0]);
                     let cpuTime = parseInt(a[1]);
+                    let majPF = parseInt(a[2]);
+                    let minPF = parseInt(a[3]);
+                    let ctxSwitch = parseInt(a[4]);
                     if (this.firstWallTime === -1) {
                         this.firstWallTime = wallTime;
                     }
                     if (this.firstCpuTime === -1) {
                         this.firstCpuTime = cpuTime;
                     }
+                    if(this.firstCtxSwitch === -1){
+                        this.firstCtxSwitch = ctxSwitch;
+                    }
+                    if(this.firstMinPF === -1){
+                        this.firstMinPF = minPF;
+                    }
+                    if(this.firstMajPF === -1){
+                        this.firstMajPF = majPF;
+                    }
                     wallTime -= this.firstWallTime;
                     cpuTime -= this.firstCpuTime;
-                    this.array.push(new Sample(wallTime, cpuTime));
+                    ctxSwitch -= this.firstCtxSwitch;
+                    minPF -= this.firstMinPF;
+                    majPF -= this.firstMajPF;
+                    this.array.push(new Sample(wallTime, cpuTime, majPF, minPF,ctxSwitch));
                 }
             })
         }
@@ -1396,6 +1419,9 @@ limitations under the License.
             let windows = [];
             let windowStart = 0;
             let cpuWindowStart = 0;
+            let ctxWindowStart = 0;
+            let majPFWindowStart = 0;
+            let minPFWindowStart = 0;
 
             this.array.forEach(sample => {
                 let windowEnd = windowStart + windowSize;
@@ -1403,10 +1429,22 @@ limitations under the License.
                     let cpuDuration = sample.cpuTime - cpuWindowStart;
                     let wallDuration = sample.wallTime - windowStart;
                     let cpuUtilization = cpuDuration / wallDuration;
-                    let window = new SampleWindow(windowStart, sample.wallTime, cpuUtilization);
+                    let ctxSwitch = sample.ctxSwitch - ctxWindowStart;
+                    let majPF = sample.majPF - majPFWindowStart;
+                    let minPF = sample.minPF - minPFWindowStart;
+                    if(ctxSwitch > this.maxCtxSwitch){
+                        this.maxCtxSwitch = ctxSwitch
+                    }
+                    if(majPF + minPF > this.maxPF){
+                        this.maxPF = majPF + minPF;
+                    }
+                    let window = new SampleWindow(windowStart, sample.wallTime, cpuUtilization, majPF, minPF, ctxSwitch);
                     windows.push(window);
                     windowStart = sample.wallTime;
                     cpuWindowStart = sample.cpuTime;
+                    ctxWindowStart = sample.ctxSwitch;
+                    minPFWindowStart = sample.minPF;
+                    majPFWindowStart = sample.majPF;
                 }
             });
             return windows;
@@ -1415,10 +1453,13 @@ limitations under the License.
 
     class SampleWindow {
 
-        constructor(start, end, cpuUtilization) {
+        constructor(start, end, cpuUtilization, majPF, minPF, ctxSwitch) {
             this.start = start;
             this.end = end;
             this.cpuUtilization = cpuUtilization;
+            this.ctxSwitch = ctxSwitch;
+            this.majPF = majPF;
+            this.minPF = minPF;
         }
     }
 
@@ -1442,6 +1483,7 @@ limitations under the License.
         render() {
             let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
+            let subWindowHeight = canvasHeight / 3;
 
             this.transform.applyTo(this.context);
             this.context.translate(0, -this.transform.getTranslationY() / this.transform.getScaleY());
@@ -1453,9 +1495,29 @@ limitations under the License.
             this.windows.forEach(window => {
                 let x = window.start;
                 let width = window.end - window.start;
-                let height = window.cpuUtilization * canvasHeight;
-                let y = canvasHeight - height;
+                let height = window.cpuUtilization * subWindowHeight;
+                let y = subWindowHeight - height;
                 this.context.fillRect(x, y, width, height);
+
+                // render ctx switch window now
+                let height2 = window.ctxSwitch / this.sampleData.maxCtxSwitch * subWindowHeight;
+                let y2 = subWindowHeight + subWindowHeight - height2;
+                this.context.fillRect(x, y2, width, height2 );
+
+                //render maj and min page fault; major red, min green
+                this.context.save();
+                this.context.fillStyle = "red";
+                let height3 = window.majPF / this.sampleData.maxPF * subWindowHeight;
+                let y3 = 2 * subWindowHeight + subWindowHeight - height3;
+                this.context.fillRect(x, y3, width, height3 );
+                this.context.restore();
+
+                this.context.save();
+                this.context.fillStyle = "green";
+                let height4 = window.minPF / this.sampleData.maxPF * subWindowHeight;
+                let y4 = y3 - height4;
+                this.context.fillRect(x, y4, width, height4);
+                this.context.restore();
             });
         }
 
