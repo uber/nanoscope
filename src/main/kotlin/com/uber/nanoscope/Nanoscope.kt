@@ -124,7 +124,7 @@ class Nanoscope {
             }
         }
 
-        fun openTrace(file: File) {
+        fun openTrace(file: File, sampleFile : File) {
             val adapter = Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(OpenHandler.TraceEvent::class.java)
             val events = sortedSetOf<OpenHandler.Event>()
             var nanotraceFile = file
@@ -164,7 +164,7 @@ class Nanoscope {
                 }
             }
 
-            displayTrace(nanotraceFile)
+            displayTraceWithSample(nanotraceFile, sampleFile)
         }
 
         fun startTracing(packageName: String?): Trace {
@@ -304,6 +304,34 @@ class Nanoscope {
             println("Opening HTML...")
             Runtime.getRuntime().exec("open $htmlPath")
         }
+
+        private fun displayTraceWithSample(traceFile: File, sampleFile: File) {
+            val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
+            println("Building HTML... ($htmlPath)")
+
+            this::class.java.classLoader.getResourceAsStream("index.html").buffered().use { htmlIn ->
+                val htmlScanner = Scanner(htmlIn).useDelimiter(">TRACE_DATA_PLACEHOLDER<")
+                File(htmlPath).outputStream().bufferedWriter().use { out ->
+                    out.write(htmlScanner.next())
+                    out.write(">")
+                    sampleFile.inputStream().bufferedReader().use { sampleIn ->
+                        sampleIn.copyTo(out)
+                    }
+                    out.write("<")
+                    out.write(htmlScanner.next())
+                    out.write(">")
+                    traceFile.inputStream().bufferedReader().use { traceIn ->
+                        traceIn.copyTo(out)
+                    }
+                    out.write("<")
+                    out.write(htmlScanner.next())
+                }
+            }
+
+            println("Opening HTML...")
+            Runtime.getRuntime().exec("open $htmlPath")
+        }
+
     }
 }
 

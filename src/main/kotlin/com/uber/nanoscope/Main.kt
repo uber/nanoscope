@@ -219,7 +219,9 @@ class OpenHandler(private val args: List<String>): Runnable {
             exitProcess(1)
         }
 
-        Nanoscope.openTrace(inFile)
+        val sampleFile = File(args[0] + ".timer")
+
+        Nanoscope.openTrace(inFile, sampleFile)
     }
 
     data class Event(
