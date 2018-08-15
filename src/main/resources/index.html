@@ -28,19 +28,27 @@ limitations under the License.
         .main {
             display: grid;
             min-height: 100vh;
-            grid-template-columns: 1fr;
+            grid-template-columns: 30px 1fr;
             grid-template-rows: min-content min-content 1fr min-content;
         }
 
         .header {
             grid-row: 1;
+            grid-column: 2;
+        }
+
+        .sampleAxisCanvas {
+            position: relative;
+            grid-row: 2;
             grid-column: 1;
+            width: 100%;
+            height: 100%;
         }
 
         .sampleCanvas {
             position: relative;
             grid-row: 2;
-            grid-column: 1;
+            grid-column: 2;
             height: 150px;
             width: 100%;
         }
@@ -48,12 +56,12 @@ limitations under the License.
         .content {
             position: relative;
             grid-row: 3;
-            grid-column: 1;
+            grid-column: 2;
         }
 
         .footer {
             grid-row: 4;
-            grid-column: 1;
+            grid-column: 2;
         }
 
         .axisCanvas {
@@ -320,6 +328,7 @@ limitations under the License.
         <canvas class="axisCanvas" id="axisCanvas"></canvas>
         <div class="title">Nanoscope</div>
     </div>
+    <canvas class="sampleAxisCanvas" id="sampleAxisCanvas" width="30" height="150"></canvas>
     <canvas class="sampleCanvas" id="sampleCanvas"></canvas>
     <div class="content">
         <canvas class="canvas" id="canvas"></canvas>
@@ -431,6 +440,7 @@ limitations under the License.
             };
             this.callStack = [];
             this.firstTimestamp = -1;
+            // this.firstTimestamp = 0;
             this.timestamp = -1;
             this.done = false;
             this.totalBytes = bytes.length;
@@ -1376,6 +1386,7 @@ limitations under the License.
         constructor(string) {
             this.array = [];
             this.firstWallTime = -1;
+            // this.firstWallTime = 0;
             this.firstCpuTime = -1;
             this.firstMinPF = -1;
             this.firstMajPF = -1;
@@ -1607,6 +1618,62 @@ limitations under the License.
         }
     }
 
+    class SampleAxisRenderer {
+
+        constructor(canvas, transform) {
+            this.canvas = canvas;
+            this.transform = transform;
+            this.context = canvas.getContext("2d");
+            this.maxCtx = -1;
+            this.maxPF = -1;
+        }
+
+        render() {
+            this.transform.applyTo(this.context);
+            this.context.translate(-this.transform.getTranslationX() / this.transform.getScaleX(), -this.transform.getTranslationY() / this.transform.getScaleY());
+            this.renderAxisBackground();
+        }
+
+        renderAxisBackground() {
+            // let viewport = this.transform.getViewport();
+            let canvasHeight = this.canvas.height;
+            let subWindowHeight = canvasHeight / 3;
+            let canvasWidth = this.canvas.width;
+            console.log("width:" + canvasWidth);
+
+            this.context.fillStyle = THEME.AXIS_BACKGROUND_COLOR;
+            this.context.fillRect(0, 0, canvasWidth, canvasHeight);
+            this.context.strokeStyle = THEME.AXIS_LINE_COLOR;
+            this.context.lineWidth = THEME.AXIS_LINE_STROKE_WIDTH;
+            for (let i = 0; i < 4; i++) {
+                this.context.beginPath();
+                this.context.moveTo(0,i*subWindowHeight);
+                this.context.lineTo(canvasWidth,i * subWindowHeight);
+                this.context.stroke();
+            }
+
+            this.context.fillStyle = THEME.AXIS_LINE_COLOR;
+            this.context.font = '10px Roboto';
+            this.context.save();
+            // this.context.scale(1/2, 1);
+            this.context.textBaseline="hanging";
+            this.context.textAlign = "right";
+            this.context.fillText("100%", canvasWidth, 0);
+            this.context.fillText(this.maxCtx, canvasWidth, subWindowHeight);
+            this.context.fillText(this.maxPF, canvasWidth, 2 * subWindowHeight);
+            this.context.textBaseline="bottom";
+            this.context.fillText("CPU", canvasWidth, subWindowHeight);
+            this.context.fillText("Ctx", canvasWidth, 2 * subWindowHeight);
+            this.context.fillText("Page", canvasWidth, 3 * subWindowHeight);
+            this.context.restore();
+        }
+
+        setMax(maxCtx, maxPF){
+            this.maxCtx = maxCtx;
+            this.maxPF = maxPF;
+        }
+    }
+
     // Handles search.
     class SearchController {
 
@@ -1683,6 +1750,7 @@ limitations under the License.
             this.searchController = new SearchController();
             this.canvasTraceRenderer = new CanvasTraceRenderer(canvas, this.transform);
             this.axisRenderer = new AxisRenderer(axisCanvas, this.transform);
+            this.sampleAxisRenderer = new SampleAxisRenderer(sampleAxisCanvas, this.transform);
             this.sampleRenderer = new SampleRenderer(sampleCanvas, this.transform);
             this.minimapRenderer = new MinimapRenderer(minimapCanvas, this.transform);
             this.detailsController = new DetailsController();
@@ -1711,6 +1779,8 @@ limitations under the License.
 
             let sampleData = new SampleData(sampleDataString);
             this.sampleRenderer.setData(sampleData);
+            this.sampleAxisRenderer.setMax(sampleData.maxCtxSwitch, sampleData.maxPF);
+            this.sampleAxisRenderer.render();
         }
 
         loadTraceData() {
@@ -1808,6 +1878,7 @@ limitations under the License.
         _refreshCanvas() {
             this.canvasTraceRenderer.render();
             this.sampleRenderer.render();
+            // this.sampleAxisRenderer.render();
             this.axisRenderer.render();
             this.minimapRenderer.render();
         }
