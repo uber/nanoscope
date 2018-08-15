@@ -29,7 +29,7 @@ limitations under the License.
             display: grid;
             min-height: 100vh;
             grid-template-columns: 30px 1fr;
-            grid-template-rows: min-content min-content 1fr min-content;
+            grid-template-rows: min-content min-content min-content 1fr min-content;
         }
 
         .header {
@@ -53,9 +53,17 @@ limitations under the License.
             width: 100%;
         }
 
-        .content {
+        .stateCanvas {
             position: relative;
             grid-row: 3;
+            grid-column: 2;
+            height: 50px;
+            width: 100%;
+        }
+
+        .content {
+            position: relative;
+            grid-row: 4;
             grid-column: 2;
         }
 
@@ -330,6 +338,7 @@ limitations under the License.
     </div>
     <canvas class="sampleAxisCanvas" id="sampleAxisCanvas" width="30" height="150"></canvas>
     <canvas class="sampleCanvas" id="sampleCanvas"></canvas>
+    <canvas class="stateCanvas" id="stateCanvas"></canvas>
     <div class="content">
         <canvas class="canvas" id="canvas"></canvas>
         <div class="details" id="details">
@@ -366,6 +375,7 @@ limitations under the License.
 </div>
 <script type="text/plain" id="sampledata">TRACE_DATA_PLACEHOLDER</script>
 <script type="text/plain" id="tracedata">TRACE_DATA_PLACEHOLDER</script>
+<script type="text/plain" id="statedata">TRACE_DATA_PLACEHOLDER</script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js"></script>
 
 <script type="text/javascript">
@@ -1509,6 +1519,7 @@ limitations under the License.
                 let height = window.cpuUtilization * subWindowHeight;
                 let y = subWindowHeight - height;
                 this.context.fillRect(x, y, width, height);
+                console.log("working " + x +"," + y +"," + width + "," + height);
 
                 // render ctx switch window now
                 let height2 = window.ctxSwitch / this.sampleData.maxCtxSwitch * subWindowHeight;
@@ -1535,6 +1546,83 @@ limitations under the License.
         _refreshWindows() {
             this.windows = this.sampleData.windows(this.windowSize);
             console.log(this.windows);
+        }
+    }
+
+    class State {
+        constructor(start_ts, end_ts, state) {
+            this.start_ts = start_ts;
+            this.end_ts = end_ts;
+            this.state = state;
+        }
+    }
+
+    class StateData {
+
+        constructor(string) {
+            this.array = [];
+            this.firstTimestamp = -1;
+            this.prev_ts = -1;
+            string.split("\n").forEach(s => {
+                let a = s.split(", ");
+                if (a.length >= 2) {
+                    let ts = parseInt(a[0]);
+                    let old_state = parseInt(a[1]);
+                    let new_state = parseInt(a[2]);
+                    if(this.firstTimestamp === -1){
+                        this.firstTimestamp = ts;
+                        this.prev_ts = 0;
+                    } else {
+                        ts -= this.firstTimestamp;
+                        this.array.push(new State(this.prev_ts, ts, old_state));
+                        this.prev_ts = ts;
+                    }
+                }
+            })
+        }
+    }
+
+    class StateRenderer {
+
+        constructor(canvas, transform) {
+            this.canvas = canvas;
+            this.transform = transform;
+            this.context = canvas.getContext("2d");
+            this.stateData = new StateData("");
+        }
+
+        setData(stateData) {
+            this.stateData = stateData;
+            this.render();
+        }
+
+        render() {
+            let viewport = this.transform.getViewport();
+            let canvasHeight = this.canvas.height;
+
+            this.transform.applyTo(this.context);
+            this.context.translate(0, -this.transform.getTranslationY() / this.transform.getScaleY());
+
+            this.context.fillStyle = "black";
+            this.context.fillRect(viewport.left, 0, viewport.width, canvasHeight);
+
+            this.context.fillStyle = "white";
+            this.stateData.array.forEach(state => {
+                this.context.fillStyle = THEME.COLOR_PALETTE[state.state % THEME.COLOR_PALETTE.length];
+                let x = state.start_ts;
+                let width = state.end_ts - state.start_ts;
+                let height = canvasHeight;
+                let y = 0;
+
+                let scale = this.transform.getScaleX();
+                let cellScreenWidth = scale * width;
+                if (cellScreenWidth < 25) {
+                    return;
+                }
+                this.context.fillRect(x, y, width, height);
+                console.log("not working " + x +"," + y +"," + width + "," + height);
+                // console.log(state);
+            });
         }
     }
 
@@ -1752,6 +1840,7 @@ limitations under the License.
             this.axisRenderer = new AxisRenderer(axisCanvas, this.transform);
             this.sampleAxisRenderer = new SampleAxisRenderer(sampleAxisCanvas, this.transform);
             this.sampleRenderer = new SampleRenderer(sampleCanvas, this.transform);
+            this.stateRenderer = new StateRenderer(stateCanvas, this.transform);
             this.minimapRenderer = new MinimapRenderer(minimapCanvas, this.transform);
             this.detailsController = new DetailsController();
 
@@ -1769,6 +1858,7 @@ limitations under the License.
         loadEmbeddedData() {
             this.loadSampleData();
             this.loadTraceData();
+            // this.loadStateData();
         }
 
         loadSampleData() {
@@ -1782,6 +1872,17 @@ limitations under the License.
             this.sampleAxisRenderer.setMax(sampleData.maxCtxSwitch, sampleData.maxPF);
             this.sampleAxisRenderer.render();
         }
+
+        loadStateData() {
+            let stateDataString = document.getElementById("statedata").innerText;
+            if (stateDataString === "TRACE_SAMPLE_PLACEHOLDER") {
+                return;
+            }
+
+            let stateData = new StateData(stateDataString);
+            this.stateRenderer.setData(stateData);
+        }
+
 
         loadTraceData() {
             let traceDataString = document.getElementById("tracedata").innerText;
@@ -1878,6 +1979,7 @@ limitations under the License.
         _refreshCanvas() {
             this.canvasTraceRenderer.render();
             this.sampleRenderer.render();
+            this.stateRenderer.render();
             // this.sampleAxisRenderer.render();
             this.axisRenderer.render();
             this.minimapRenderer.render();
