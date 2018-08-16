@@ -336,7 +336,7 @@ limitations under the License.
         <canvas class="axisCanvas" id="axisCanvas"></canvas>
         <div class="title">Nanoscope</div>
     </div>
-    <canvas class="sampleAxisCanvas" id="sampleAxisCanvas" width="30" height="150"></canvas>
+    <canvas class="sampleAxisCanvas" id="sampleAxisCanvas"></canvas>
     <canvas class="sampleCanvas" id="sampleCanvas"></canvas>
     <canvas class="stateCanvas" id="stateCanvas"></canvas>
     <div class="content">
@@ -425,6 +425,34 @@ limitations under the License.
             ],
         "MARGIN_AROUND_METHODS_AT_START": 0.10,
         "SELECTED_CROSSHAIR_COLOR": "#FFFFFFDD",
+        'THREAD_STATE_NAME':
+        [
+              'Terminated',
+              'Runnable',
+              'TimedWaiting',
+              'Sleeping',
+              'Blocked',
+              'Waiting',
+              'WaitingForGcToComplete',
+              'WaitingForCheckPointsToRun',
+              'WaitingPerformingGc',
+              'WaitingForDebuggerSend',
+              'WaitingForDebuggerToAttach',
+              'WaitingInMainDebuggerLoop',
+              'WaitingForDebuggerSuspension',
+              'WaitingForJniOnLoad',
+              'WaitingForSignalCatcherOutput',
+              'WaitingInMainSignalCatcherLoop',
+              'WaitingForDeoptimization',
+              'WaitingForMethodTracingStart',
+              'WaitingForVisitObjects',
+              'WaitingForGetObjectsAllocated',
+              'WaitingWeakGcRootRead',
+              'WaitingForGcThreadFlip',
+              'Starting',
+              'Native',
+              'Suspended',
+        ],
     };
 
     // Processes raw trace data bytes. Consume processed data by registering callbacks:
@@ -449,8 +477,8 @@ limitations under the License.
             this.onPop = () => {
             };
             this.callStack = [];
-            this.firstTimestamp = -1;
-            // this.firstTimestamp = 0;
+            // this.firstTimestamp = -1;
+            this.firstTimestamp = 0;
             this.timestamp = -1;
             this.done = false;
             this.totalBytes = bytes.length;
@@ -507,9 +535,9 @@ limitations under the License.
             let name = namesAndMeta[0];
             let shortName = namesAndMeta[1];
             let meta = namesAndMeta[2];
-            if (this.firstTimestamp === -1) {
-                this.firstTimestamp = this.timestamp;
-            }
+            // if (this.firstTimestamp === -1) {
+            //     this.firstTimestamp = this.timestamp;
+            // }
             this.timestamp -= this.firstTimestamp;
             if (name === "POP") {
                 if (this.callStack.length > 0) {
@@ -705,6 +733,9 @@ limitations under the License.
 
             method.pushCall(call);
 
+            if(this.minTimestamp === 0){
+                this.minTimestamp = call.start;
+            }
             this.minTimestamp = Math.min(this.minTimestamp, call.start);
             this.maxStackDepth = Math.max(this.maxStackDepth, call.stackDepth);
         }
@@ -1395,8 +1426,8 @@ limitations under the License.
 
         constructor(string) {
             this.array = [];
-            this.firstWallTime = -1;
-            // this.firstWallTime = 0;
+            // this.firstWallTime = -1;
+            this.firstWallTime = 0;
             this.firstCpuTime = -1;
             this.firstMinPF = -1;
             this.firstMajPF = -1;
@@ -1411,9 +1442,9 @@ limitations under the License.
                     let majPF = parseInt(a[2]);
                     let minPF = parseInt(a[3]);
                     let ctxSwitch = parseInt(a[4]);
-                    if (this.firstWallTime === -1) {
-                        this.firstWallTime = wallTime;
-                    }
+                    // if (this.firstWallTime === -1) {
+                    //     this.firstWallTime = wallTime;
+                    // }
                     if (this.firstCpuTime === -1) {
                         this.firstCpuTime = cpuTime;
                     }
@@ -1519,7 +1550,7 @@ limitations under the License.
                 let height = window.cpuUtilization * subWindowHeight;
                 let y = subWindowHeight - height;
                 this.context.fillRect(x, y, width, height);
-                console.log("working " + x +"," + y +"," + width + "," + height);
+                // console.log("working " + x +"," + y +"," + width + "," + height);
 
                 // render ctx switch window now
                 let height2 = window.ctxSwitch / this.sampleData.maxCtxSwitch * subWindowHeight;
@@ -1554,6 +1585,7 @@ limitations under the License.
             this.start_ts = start_ts;
             this.end_ts = end_ts;
             this.state = state;
+            this.name = THEME.THREAD_STATE_NAME[state - 66];
         }
     }
 
@@ -1561,7 +1593,8 @@ limitations under the License.
 
         constructor(string) {
             this.array = [];
-            this.firstTimestamp = -1;
+            // this.firstTimestamp = -1;
+            this.firstTimestamp = 0;
             this.prev_ts = -1;
             string.split("\n").forEach(s => {
                 let a = s.split(", ");
@@ -1569,9 +1602,10 @@ limitations under the License.
                     let ts = parseInt(a[0]);
                     let old_state = parseInt(a[1]);
                     let new_state = parseInt(a[2]);
-                    if(this.firstTimestamp === -1){
-                        this.firstTimestamp = ts;
-                        this.prev_ts = 0;
+                    if(this.prev_ts === -1){
+                        // this.firstTimestamp = ts;
+                        // this.prev_ts = 0;
+                        this.prev_ts = ts;
                     } else {
                         ts -= this.firstTimestamp;
                         this.array.push(new State(this.prev_ts, ts, old_state));
@@ -1589,6 +1623,7 @@ limitations under the License.
             this.transform = transform;
             this.context = canvas.getContext("2d");
             this.stateData = new StateData("");
+            this.textPool = new TextPool();
         }
 
         setData(stateData) {
@@ -1606,7 +1641,6 @@ limitations under the License.
             this.context.fillStyle = "black";
             this.context.fillRect(viewport.left, 0, viewport.width, canvasHeight);
 
-            this.context.fillStyle = "white";
             this.stateData.array.forEach(state => {
                 this.context.fillStyle = THEME.COLOR_PALETTE[state.state % THEME.COLOR_PALETTE.length];
                 let x = state.start_ts;
@@ -1615,13 +1649,48 @@ limitations under the License.
                 let y = 0;
 
                 let scale = this.transform.getScaleX();
-                let cellScreenWidth = scale * width;
-                if (cellScreenWidth < 25) {
-                    return;
-                }
+                // let cellScreenWidth = scale * width;
+                // if (cellScreenWidth < 5) {
+                //     return;
+                // }
                 this.context.fillRect(x, y, width, height);
-                console.log("not working " + x +"," + y +"," + width + "," + height);
+                // console.log(x +"," + y +"," + width + "," + height);
                 // console.log(state);
+
+                // let name = "TEST_NAME";
+                // if (state.textCanvas == null) {
+                //     state.textCanvas = this.textPool.getOrRasterize(name);
+                // }
+
+                // let nameModelHeight = state.textCanvas.height;
+                // let nameModelWidth = Math.min(width, state.textCanvas.width / PIXEL_RATIO / scale);
+
+                // // Preferred name position - centered on screen with slight offset.
+                // let nameModelLeft = viewport.left + viewport.width / 2 - 300;
+
+                // // Ensure name within left bounds.
+                // nameModelLeft = Math.max(x, nameModelLeft);
+                // let nameModelRight = nameModelLeft + nameModelWidth;
+
+                // // Ensure name within right bounds.
+                // nameModelRight = Math.min(x + width, nameModelRight);
+                // nameModelLeft = nameModelRight - nameModelWidth;
+
+                // // let nameModelLeft = this.left;
+                // // noinspection UnnecessaryLocalVariableJS
+                // let nameModelTop = top;
+
+                // let nameModelPosition = vec2.fromValues(nameModelLeft, nameModelTop);
+                // let nameScreenPosition = this.transform.toScreenPosition(nameModelPosition);
+                // let nameScreenWidth = nameModelWidth * scale;
+
+                // this.context.save();
+                // this.context.setTransform(1, 0, 0, 1, 0, 0);
+                // this.context.drawImage(
+                //     state.textCanvas,
+                //     0, 0, nameScreenWidth, nameModelHeight,
+                //     nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
+                // this.context.restore();
             });
         }
     }
@@ -1741,7 +1810,7 @@ limitations under the License.
             }
 
             this.context.fillStyle = THEME.AXIS_LINE_COLOR;
-            this.context.font = '10px Roboto';
+            this.context.font = '20px Roboto';
             this.context.save();
             // this.context.scale(1/2, 1);
             this.context.textBaseline="hanging";
@@ -1858,7 +1927,7 @@ limitations under the License.
         loadEmbeddedData() {
             this.loadSampleData();
             this.loadTraceData();
-            // this.loadStateData();
+            this.loadStateData();
         }
 
         loadSampleData() {
@@ -1980,7 +2049,7 @@ limitations under the License.
             this.canvasTraceRenderer.render();
             this.sampleRenderer.render();
             this.stateRenderer.render();
-            // this.sampleAxisRenderer.render();
+            this.sampleAxisRenderer.render();
             this.axisRenderer.render();
             this.minimapRenderer.render();
         }
@@ -1996,6 +2065,8 @@ limitations under the License.
         let canvas = document.getElementById('canvas');
         resize(canvas);
         resize(document.getElementById('sampleCanvas'));
+        resize(document.getElementById('sampleAxisCanvas'));
+        resize(document.getElementById('stateCanvas'));
         resize(document.getElementById('axisCanvas'));
         resize(document.getElementById('minimapCanvas'));
         controller.onCanvasResize(new Rect(0, 0, canvas.width, canvas.height));
