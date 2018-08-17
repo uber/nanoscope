@@ -423,7 +423,35 @@ limitations under the License.
                 '#4D4D4D',
                 '#717171',
             ],
-        "MARGIN_AROUND_METHODS_AT_START": 0.10,
+        'COLOR_PALETTE_STATE':
+            [
+              '#970c2a',
+              '#1d6808',
+              '#12deb2',
+              '#c61093',
+              '#9e10c6',
+              '#0c9779',
+              '#4fc4f1',
+              '#61caf2',
+              '#73d0f4',
+              '#85d6f5',
+              '#98dcf7',
+              '#aae2f8',
+              '#bce8fa',
+              '#ceeefb',
+              '#e0f5fd',
+              '#f2fbfe',
+              '#3dbdf0',
+              '#2bb7ee',
+              '#18b1ed',
+              '#12a6e0',
+              '#1098ce',
+              '#0f8bbb',
+              '#97790c',
+              '#2a970c',
+              '#0c2a97',
+            ],
+            "MARGIN_AROUND_METHODS_AT_START": 0.10,
         "SELECTED_CROSSHAIR_COLOR": "#FFFFFFDD",
         'THREAD_STATE_NAME':
         [
@@ -1585,7 +1613,7 @@ limitations under the License.
             this.start_ts = start_ts;
             this.end_ts = end_ts;
             this.state = state;
-            this.name = THEME.THREAD_STATE_NAME[state - 66];
+            this.name = THEME.THREAD_STATE_NAME[this.state - 66];
         }
     }
 
@@ -1642,55 +1670,57 @@ limitations under the License.
             this.context.fillRect(viewport.left, 0, viewport.width, canvasHeight);
 
             this.stateData.array.forEach(state => {
-                this.context.fillStyle = THEME.COLOR_PALETTE[state.state % THEME.COLOR_PALETTE.length];
+                this.context.fillStyle = THEME.COLOR_PALETTE_STATE[state.state - 66];
+                // this.context.fillStyle = intToRGB(hashCode(THEME.THREAD_STATE_NAME[state.state - 66]));
+                // console.log(this.context.fillStyle);
                 let x = state.start_ts;
                 let width = state.end_ts - state.start_ts;
                 let height = canvasHeight;
                 let y = 0;
 
                 let scale = this.transform.getScaleX();
-                // let cellScreenWidth = scale * width;
-                // if (cellScreenWidth < 5) {
-                //     return;
-                // }
                 this.context.fillRect(x, y, width, height);
                 // console.log(x +"," + y +"," + width + "," + height);
                 // console.log(state);
 
-                // let name = "TEST_NAME";
-                // if (state.textCanvas == null) {
-                //     state.textCanvas = this.textPool.getOrRasterize(name);
-                // }
+                let cellScreenWidth = scale * width;
+                if (cellScreenWidth < 25) {
+                    return;
+                }
+                let name = state.name;
+                if (state.textCanvas == null) {
+                    state.textCanvas = this.textPool.getOrRasterize(name);
+                }
 
-                // let nameModelHeight = state.textCanvas.height;
-                // let nameModelWidth = Math.min(width, state.textCanvas.width / PIXEL_RATIO / scale);
+                let nameModelHeight = state.textCanvas.height;
+                let nameModelWidth = Math.min(width, state.textCanvas.width / PIXEL_RATIO / scale);
 
-                // // Preferred name position - centered on screen with slight offset.
-                // let nameModelLeft = viewport.left + viewport.width / 2 - 300;
+                // Preferred name position - centered on screen with slight offset.
+                let nameModelLeft = viewport.left + viewport.width / 2 - 300;
 
-                // // Ensure name within left bounds.
-                // nameModelLeft = Math.max(x, nameModelLeft);
-                // let nameModelRight = nameModelLeft + nameModelWidth;
+                // Ensure name within left bounds.
+                nameModelLeft = Math.max(x, nameModelLeft);
+                let nameModelRight = nameModelLeft + nameModelWidth;
 
-                // // Ensure name within right bounds.
-                // nameModelRight = Math.min(x + width, nameModelRight);
-                // nameModelLeft = nameModelRight - nameModelWidth;
+                // Ensure name within right bounds.
+                nameModelRight = Math.min(x + width, nameModelRight);
+                nameModelLeft = nameModelRight - nameModelWidth;
 
-                // // let nameModelLeft = this.left;
-                // // noinspection UnnecessaryLocalVariableJS
-                // let nameModelTop = top;
+                // let nameModelLeft = this.left;
+                // noinspection UnnecessaryLocalVariableJS
+                let nameModelTop = 0;
 
-                // let nameModelPosition = vec2.fromValues(nameModelLeft, nameModelTop);
-                // let nameScreenPosition = this.transform.toScreenPosition(nameModelPosition);
-                // let nameScreenWidth = nameModelWidth * scale;
+                let nameModelPosition = vec2.fromValues(nameModelLeft, nameModelTop);
+                let nameScreenPosition = this.transform.toScreenPosition(nameModelPosition);
+                let nameScreenWidth = nameModelWidth * scale;
 
-                // this.context.save();
-                // this.context.setTransform(1, 0, 0, 1, 0, 0);
-                // this.context.drawImage(
-                //     state.textCanvas,
-                //     0, 0, nameScreenWidth, nameModelHeight,
-                //     nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
-                // this.context.restore();
+                this.context.save();
+                this.context.setTransform(1, 0, 0, 1, 0, 0);
+                this.context.drawImage(
+                    state.textCanvas,
+                    0, 0, nameScreenWidth, nameModelHeight,
+                    nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
+                this.context.restore();
             });
         }
     }
