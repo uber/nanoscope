@@ -28,7 +28,7 @@ limitations under the License.
         .main {
             display: grid;
             min-height: 100vh;
-            grid-template-columns: 30px 1fr;
+            grid-template-columns: 50px 1fr;
             grid-template-rows: min-content min-content min-content 1fr min-content;
         }
 
@@ -49,7 +49,7 @@ limitations under the License.
             position: relative;
             grid-row: 2;
             grid-column: 2;
-            height: 150px;
+            height: 250px;
             width: 100%;
         }
 
@@ -1441,12 +1441,14 @@ limitations under the License.
 
     class Sample {
 
-        constructor(wallTime, cpuTime, majPF, minPF, ctxSwitch) {
+        constructor(wallTime, cpuTime, majPF, minPF, ctxSwitch, allocBytes, allocObjects) {
             this.wallTime = wallTime;
             this.cpuTime = cpuTime;
             this.majPF = majPF;
             this.minPF = minPF;
             this.ctxSwitch = ctxSwitch;
+            this.allocBytes = allocBytes;
+            this.allocObjects = allocObjects;
         }
     }
 
@@ -1462,6 +1464,8 @@ limitations under the License.
             this.firstCtxSwitch = -1;
             this.maxCtxSwitch = -1;
             this.maxPF = -1;
+            this.maxAllocBytes = -1;
+            this.maxAllocObjects = -1;
             string.split("\n").forEach(s => {
                 let a = s.split(", ");
                 if (a.length >= 2) {
@@ -1470,6 +1474,8 @@ limitations under the License.
                     let majPF = parseInt(a[2]);
                     let minPF = parseInt(a[3]);
                     let ctxSwitch = parseInt(a[4]);
+                    let allocBytes = parseInt(a[5]);
+                    let allocObjects = parseInt(a[6]);
                     // if (this.firstWallTime === -1) {
                     //     this.firstWallTime = wallTime;
                     // }
@@ -1490,7 +1496,7 @@ limitations under the License.
                     ctxSwitch -= this.firstCtxSwitch;
                     minPF -= this.firstMinPF;
                     majPF -= this.firstMajPF;
-                    this.array.push(new Sample(wallTime, cpuTime, majPF, minPF,ctxSwitch));
+                    this.array.push(new Sample(wallTime, cpuTime, majPF, minPF,ctxSwitch, allocBytes, allocObjects));
                 }
             })
         }
@@ -1512,13 +1518,21 @@ limitations under the License.
                     let ctxSwitch = sample.ctxSwitch - ctxWindowStart;
                     let majPF = sample.majPF - majPFWindowStart;
                     let minPF = sample.minPF - minPFWindowStart;
+                    let allocBytes = sample.allocBytes;
+                    let allocObjects = sample.allocObjects;
                     if(ctxSwitch > this.maxCtxSwitch){
                         this.maxCtxSwitch = ctxSwitch
                     }
                     if(majPF + minPF > this.maxPF){
                         this.maxPF = majPF + minPF;
                     }
-                    let window = new SampleWindow(windowStart, sample.wallTime, cpuUtilization, majPF, minPF, ctxSwitch);
+                    if(allocBytes > this.maxAllocBytes){
+                        this.maxAllocBytes = allocBytes;
+                    }
+                    if(allocObjects > this.maxAllocObjects){
+                        this.maxAllocObjects = allocObjects;
+                    }
+                    let window = new SampleWindow(windowStart, sample.wallTime, cpuUtilization, majPF, minPF, ctxSwitch, allocBytes, allocObjects);
                     windows.push(window);
                     windowStart = sample.wallTime;
                     cpuWindowStart = sample.cpuTime;
@@ -1533,13 +1547,15 @@ limitations under the License.
 
     class SampleWindow {
 
-        constructor(start, end, cpuUtilization, majPF, minPF, ctxSwitch) {
+        constructor(start, end, cpuUtilization, majPF, minPF, ctxSwitch, allocBytes, allocObjects) {
             this.start = start;
             this.end = end;
             this.cpuUtilization = cpuUtilization;
             this.ctxSwitch = ctxSwitch;
             this.majPF = majPF;
             this.minPF = minPF;
+            this.allocBytes = allocBytes;
+            this.allocObjects = allocObjects;
         }
     }
 
@@ -1563,7 +1579,7 @@ limitations under the License.
         render() {
             let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
-            let subWindowHeight = canvasHeight / 3;
+            let subWindowHeight = canvasHeight / 5;
 
             this.transform.applyTo(this.context);
             this.context.translate(0, -this.transform.getTranslationY() / this.transform.getScaleY());
@@ -1599,6 +1615,19 @@ limitations under the License.
                 let y4 = y3 - height4;
                 this.context.fillRect(x, y4, width, height4);
                 this.context.restore();
+
+
+                this.context.fillStyle = "white";
+                // render allocation bytes
+                let height5 = window.allocBytes / this.sampleData.maxAllocBytes * subWindowHeight;
+                let y5 = 3 * subWindowHeight + subWindowHeight - height5;
+                this.context.fillRect(x, y5, width, height5 );
+
+                // render allocation objects
+                let height6 = window.allocObjects / this.sampleData.maxAllocObjects * subWindowHeight;
+                let y6 = 4 * subWindowHeight + subWindowHeight - height6;
+                this.context.fillRect(x, y6, width, height6 );
+
             });
         }
 
@@ -1813,6 +1842,8 @@ limitations under the License.
             this.context = canvas.getContext("2d");
             this.maxCtx = -1;
             this.maxPF = -1;
+            this.maxAllocBytes = -1;
+            this.maxAllocObjects = -1;
         }
 
         render() {
@@ -1824,7 +1855,7 @@ limitations under the License.
         renderAxisBackground() {
             // let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
-            let subWindowHeight = canvasHeight / 3;
+            let subWindowHeight = canvasHeight / 5;
             let canvasWidth = this.canvas.width;
             console.log("width:" + canvasWidth);
 
@@ -1832,7 +1863,7 @@ limitations under the License.
             this.context.fillRect(0, 0, canvasWidth, canvasHeight);
             this.context.strokeStyle = THEME.AXIS_LINE_COLOR;
             this.context.lineWidth = THEME.AXIS_LINE_STROKE_WIDTH;
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 6; i++) {
                 this.context.beginPath();
                 this.context.moveTo(0,i*subWindowHeight);
                 this.context.lineTo(canvasWidth,i * subWindowHeight);
@@ -1848,16 +1879,22 @@ limitations under the License.
             this.context.fillText("100%", canvasWidth, 0);
             this.context.fillText(this.maxCtx, canvasWidth, subWindowHeight);
             this.context.fillText(this.maxPF, canvasWidth, 2 * subWindowHeight);
+            this.context.fillText(this.maxAllocBytes, canvasWidth, 3 * subWindowHeight);
+            this.context.fillText(this.maxAllocObjects, canvasWidth, 4 * subWindowHeight);
             this.context.textBaseline="bottom";
             this.context.fillText("CPU", canvasWidth, subWindowHeight);
             this.context.fillText("Ctx", canvasWidth, 2 * subWindowHeight);
             this.context.fillText("Page", canvasWidth, 3 * subWindowHeight);
+            this.context.fillText("Mem Bytes", canvasWidth, 4 * subWindowHeight);
+            this.context.fillText("Mem Objects", canvasWidth, 5 * subWindowHeight);
             this.context.restore();
         }
 
-        setMax(maxCtx, maxPF){
+        setMax(maxCtx, maxPF, maxAllocBytes, maxAllocObjects){
             this.maxCtx = maxCtx;
             this.maxPF = maxPF;
+            this.maxAllocBytes = maxAllocBytes;
+            this.maxAllocObjects = maxAllocObjects;
         }
     }
 
@@ -1968,7 +2005,7 @@ limitations under the License.
 
             let sampleData = new SampleData(sampleDataString);
             this.sampleRenderer.setData(sampleData);
-            this.sampleAxisRenderer.setMax(sampleData.maxCtxSwitch, sampleData.maxPF);
+            this.sampleAxisRenderer.setMax(sampleData.maxCtxSwitch, sampleData.maxPF, sampleData.maxAllocBytes, sampleData.maxAllocObjects);
             this.sampleAxisRenderer.render();
         }
 
