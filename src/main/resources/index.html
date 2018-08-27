@@ -49,7 +49,7 @@ limitations under the License.
             position: relative;
             grid-row: 2;
             grid-column: 2;
-            height: 250px;
+            height: 350px;
             width: 100%;
         }
 
@@ -423,71 +423,117 @@ limitations under the License.
                 '#4D4D4D',
                 '#717171',
             ],
-        'COLOR_PALETTE_STATE':
-            [
-              '#970c2a',
-              '#1d6808',
-              '#12deb2',
-              '#c61093',
-              '#9e10c6',
-              '#0c9779',
-              '#4fc4f1',
-              '#61caf2',
-              '#73d0f4',
-              '#85d6f5',
-              '#98dcf7',
-              '#aae2f8',
-              '#bce8fa',
-              '#ceeefb',
-              '#e0f5fd',
-              '#f2fbfe',
-              '#3dbdf0',
-              '#2bb7ee',
-              '#18b1ed',
-              '#12a6e0',
-              '#1098ce',
-              '#0f8bbb',
-              '#97790c',
-              '#2a970c',
-              '#0c2a97',
-            ],
+        // 'COLOR_PALETTE_STATE':
+        //     [
+        //       '#970c2a',
+        //       '#1d6808',
+        //       '#12deb2',
+        //       '#c61093',
+        //       '#9e10c6',
+        //       '#0c9779',
+        //       '#4fc4f1',
+        //       '#61caf2',
+        //       '#73d0f4',
+        //       '#85d6f5',
+        //       '#98dcf7',
+        //       '#aae2f8',
+        //       '#bce8fa',
+        //       '#ceeefb',
+        //       '#e0f5fd',
+        //       '#f2fbfe',
+        //       '#3dbdf0',
+        //       '#2bb7ee',
+        //       '#18b1ed',
+        //       '#12a6e0',
+        //       '#1098ce',
+        //       '#0f8bbb',
+        //       '#97790c',
+        //       '#2a970c',
+        //       '#0c2a97',
+        //     ],
             "MARGIN_AROUND_METHODS_AT_START": 0.10,
-        "SELECTED_CROSSHAIR_COLOR": "#FFFFFFDD",
-        'THREAD_STATE_NAME':
-        [
-              'Terminated',
-              'Runnable',
-              'TimedWaiting',
-              'Sleeping',
-              'Blocked',
-              'Waiting',
-              'WaitingForGcToComplete',
-              'WaitingForCheckPointsToRun',
-              'WaitingPerformingGc',
-              'WaitingForDebuggerSend',
-              'WaitingForDebuggerToAttach',
-              'WaitingInMainDebuggerLoop',
-              'WaitingForDebuggerSuspension',
-              'WaitingForJniOnLoad',
-              'WaitingForSignalCatcherOutput',
-              'WaitingInMainSignalCatcherLoop',
-              'WaitingForDeoptimization',
-              'WaitingForMethodTracingStart',
-              'WaitingForVisitObjects',
-              'WaitingForGetObjectsAllocated',
-              'WaitingWeakGcRootRead',
-              'WaitingForGcThreadFlip',
-              'Starting',
-              'Native',
-              'Suspended',
-        ],
+            "SELECTED_CROSSHAIR_COLOR": "#FFFFFFDD",
+        // 'THREAD_STATE_NAME':
+        // [
+        //       'Terminated',
+        //       'Runnable',
+        //       'TimedWaiting',
+        //       'Sleeping',
+        //       'Blocked',
+        //       'Waiting',
+        //       'WaitingForGcToComplete',
+        //       'WaitingForCheckPointsToRun',
+        //       'WaitingPerformingGc',
+        //       'WaitingForDebuggerSend',
+        //       'WaitingForDebuggerToAttach',
+        //       'WaitingInMainDebuggerLoop',
+        //       'WaitingForDebuggerSuspension',
+        //       'WaitingForJniOnLoad',
+        //       'WaitingForSignalCatcherOutput',
+        //       'WaitingInMainSignalCatcherLoop',
+        //       'WaitingForDeoptimization',
+        //       'WaitingForMethodTracingStart',
+        //       'WaitingForVisitObjects',
+        //       'WaitingForGetObjectsAllocated',
+        //       'WaitingWeakGcRootRead',
+        //       'WaitingForGcThreadFlip',
+        //       'Starting',
+        //       'Native',
+        //       'Suspended',
+        // ],
     };
+
+    var stateIdxArray = [
+                            0,
+                            1,
+                            2,
+                            3,
+                            4,
+                            2,
+                            5,
+                            5,
+                            5,
+                            6,
+                            6,
+                            6,
+                            6,
+                            7,
+                            8,
+                            8,
+                            9,
+                            10,
+                            5,
+                            5,
+                            5,
+                            5,
+                            11,
+                            12,
+                            13
+                        ]
+
+    var stateShortName = [
+                            "Terminated",
+                            "Runnable",
+                            "Object.wait()",
+                            "Sleeping",
+                            "MonitorBlocker",
+                            "GCWait",
+                            "DebugWait",
+                            "JNILoadWait",
+                            "SignalWait",
+                            "DeoptWait",
+                            "TraceWait",
+                            "Starting",
+                            "Native",
+                            "Suspended"
+                        ]
 
     // Processes raw trace data bytes. Consume processed data by registering callbacks:
     //     onProgress(bytesRead), onDone(), onPush(call), onPop(call)
     class TraceDataProcessor {
 
         constructor(bytes) {
+            // console.log(bytes);
             this.charZero = '0'.charCodeAt(0);
             this.charColon = ':'.charCodeAt(0);
             this.charNewline = '\n'.charCodeAt(0);
@@ -555,6 +601,7 @@ limitations under the License.
 
         loadLine() {
             let loadedTimestamp = this.loadTimestamp();
+            // console.log(loadedTimestamp);
             if (this.done) {
                 return;
             }
@@ -574,6 +621,7 @@ limitations under the License.
             } else {
                 let stackDepth = this.callStack.length + 1;
                 let call = new TraceCall(name, shortName, meta, stackDepth, this.timestamp);
+                // console.log(call);
                 this.callStack.push(call);
                 this.onPush(call);
             }
@@ -587,17 +635,20 @@ limitations under the License.
 
         loadTimestamp() {
             let next = this.next();
+            // console.log(next);
             if (next.done) {
                 this.done = true;
                 return;
             }
 
+            // console.log("loadTimestamp");
             let timestamp = 0;
             while (next.value !== this.charColon) {
                 timestamp *= 10;
                 timestamp += next.value - this.charZero;
                 next = this.next();
             }
+            // console.log(timestamp);
             return timestamp;
         }
 
@@ -1260,6 +1311,7 @@ limitations under the License.
 
         focusOnRegistry(methodRegistry) {
             let duration = methodRegistry.maxTimestamp - methodRegistry.minTimestamp;
+            // console.log(methodRegistry.maxTimestamp, methodRegistry.minTimestamp);
             this._focusWithMargin(methodRegistry.minTimestamp, 0, duration, THEME.MARGIN_AROUND_METHODS_AT_START);
         }
 
@@ -1441,7 +1493,7 @@ limitations under the License.
 
     class Sample {
 
-        constructor(wallTime, cpuTime, majPF, minPF, ctxSwitch, allocBytes, allocObjects) {
+        constructor(wallTime, cpuTime, majPF, minPF, ctxSwitch, allocBytes, allocObjects, threadAlloc, threadFree) {
             this.wallTime = wallTime;
             this.cpuTime = cpuTime;
             this.majPF = majPF;
@@ -1449,6 +1501,8 @@ limitations under the License.
             this.ctxSwitch = ctxSwitch;
             this.allocBytes = allocBytes;
             this.allocObjects = allocObjects;
+            this.threadAlloc = threadAlloc;
+            this.threadFree = threadFree;
         }
     }
 
@@ -1466,6 +1520,8 @@ limitations under the License.
             this.maxPF = -1;
             this.maxAllocBytes = -1;
             this.maxAllocObjects = -1;
+            this.maxThreadAlloc = -1;
+            this.maxThreadFree = -1;
             string.split("\n").forEach(s => {
                 let a = s.split(", ");
                 if (a.length >= 2) {
@@ -1476,6 +1532,8 @@ limitations under the License.
                     let ctxSwitch = parseInt(a[4]);
                     let allocBytes = parseInt(a[5]);
                     let allocObjects = parseInt(a[6]);
+                    let threadAlloc = parseInt(a[7]);
+                    let threadFree = parseInt(a[8]);
                     // if (this.firstWallTime === -1) {
                     //     this.firstWallTime = wallTime;
                     // }
@@ -1496,7 +1554,7 @@ limitations under the License.
                     ctxSwitch -= this.firstCtxSwitch;
                     minPF -= this.firstMinPF;
                     majPF -= this.firstMajPF;
-                    this.array.push(new Sample(wallTime, cpuTime, majPF, minPF,ctxSwitch, allocBytes, allocObjects));
+                    this.array.push(new Sample(wallTime, cpuTime, majPF, minPF,ctxSwitch, allocBytes, allocObjects, threadAlloc, threadFree));
                 }
             })
         }
@@ -1520,6 +1578,8 @@ limitations under the License.
                     let minPF = sample.minPF - minPFWindowStart;
                     let allocBytes = sample.allocBytes;
                     let allocObjects = sample.allocObjects;
+                    let threadAlloc = sample.threadAlloc;
+                    let threadFree = sample.threadFree;
                     if(ctxSwitch > this.maxCtxSwitch){
                         this.maxCtxSwitch = ctxSwitch
                     }
@@ -1532,7 +1592,13 @@ limitations under the License.
                     if(allocObjects > this.maxAllocObjects){
                         this.maxAllocObjects = allocObjects;
                     }
-                    let window = new SampleWindow(windowStart, sample.wallTime, cpuUtilization, majPF, minPF, ctxSwitch, allocBytes, allocObjects);
+                    if(threadAlloc > this.maxThreadAlloc){
+                        this.maxThreadAlloc = threadAlloc;
+                    }
+                    if(threadFree > this.maxThreadFree){
+                        this.maxThreadFree = threadFree;
+                    }
+                    let window = new SampleWindow(windowStart, sample.wallTime, cpuUtilization, majPF, minPF, ctxSwitch, allocBytes, allocObjects, threadAlloc, threadFree);
                     windows.push(window);
                     windowStart = sample.wallTime;
                     cpuWindowStart = sample.cpuTime;
@@ -1547,7 +1613,7 @@ limitations under the License.
 
     class SampleWindow {
 
-        constructor(start, end, cpuUtilization, majPF, minPF, ctxSwitch, allocBytes, allocObjects) {
+        constructor(start, end, cpuUtilization, majPF, minPF, ctxSwitch, allocBytes, allocObjects, threadAlloc, threadFree) {
             this.start = start;
             this.end = end;
             this.cpuUtilization = cpuUtilization;
@@ -1556,6 +1622,8 @@ limitations under the License.
             this.minPF = minPF;
             this.allocBytes = allocBytes;
             this.allocObjects = allocObjects;
+            this.threadAlloc = threadAlloc;
+            this.threadFree = threadFree;
         }
     }
 
@@ -1579,7 +1647,7 @@ limitations under the License.
         render() {
             let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
-            let subWindowHeight = canvasHeight / 5;
+            let subWindowHeight = canvasHeight / 7;
 
             this.transform.applyTo(this.context);
             this.context.translate(0, -this.transform.getTranslationY() / this.transform.getScaleY());
@@ -1628,12 +1696,21 @@ limitations under the License.
                 let y6 = 4 * subWindowHeight + subWindowHeight - height6;
                 this.context.fillRect(x, y6, width, height6 );
 
+                // render thread allocation bytes
+                let height7 = window.threadAlloc / this.sampleData.maxThreadAlloc * subWindowHeight;
+                let y7 = 5 * subWindowHeight + subWindowHeight - height7;
+                this.context.fillRect(x, y7, width, height7 );
+
+                // render thread freed bytes
+                let height8 = window.threadFree / this.sampleData.maxThreadFree * subWindowHeight;
+                let y8 = 6 * subWindowHeight + subWindowHeight - height8;
+                this.context.fillRect(x, y8, width, height8 );
             });
         }
 
         _refreshWindows() {
             this.windows = this.sampleData.windows(this.windowSize);
-            console.log(this.windows);
+            // console.log(this.windows);
         }
     }
 
@@ -1642,7 +1719,8 @@ limitations under the License.
             this.start_ts = start_ts;
             this.end_ts = end_ts;
             this.state = state;
-            this.name = THEME.THREAD_STATE_NAME[this.state - 66];
+            this.name = stateShortName[this.state];
+            // console.log(start_ts, end_ts, state, this.name);
         }
     }
 
@@ -1653,17 +1731,20 @@ limitations under the License.
             // this.firstTimestamp = -1;
             this.firstTimestamp = 0;
             this.prev_ts = -1;
+            // this.prev_state = -1;
             string.split("\n").forEach(s => {
                 let a = s.split(", ");
                 if (a.length >= 2) {
                     let ts = parseInt(a[0]);
-                    let old_state = parseInt(a[1]);
-                    let new_state = parseInt(a[2]);
+                    let old_state = stateIdxArray[parseInt(a[1]) - 66];
+                    let new_state = stateIdxArray[parseInt(a[2]) - 66];
+                    // console.log(old_state, new_state);
                     if(this.prev_ts === -1){
                         // this.firstTimestamp = ts;
                         // this.prev_ts = 0;
                         this.prev_ts = ts;
-                    } else {
+                        // this.prev_state = new_state;
+                    } else if (old_state != new_state) {
                         ts -= this.firstTimestamp;
                         this.array.push(new State(this.prev_ts, ts, old_state));
                         this.prev_ts = ts;
@@ -1699,7 +1780,7 @@ limitations under the License.
             this.context.fillRect(viewport.left, 0, viewport.width, canvasHeight);
 
             this.stateData.array.forEach(state => {
-                this.context.fillStyle = THEME.COLOR_PALETTE_STATE[state.state - 66];
+                this.context.fillStyle = THEME.COLOR_PALETTE[state.state];
                 // this.context.fillStyle = intToRGB(hashCode(THEME.THREAD_STATE_NAME[state.state - 66]));
                 // console.log(this.context.fillStyle);
                 let x = state.start_ts;
@@ -1844,6 +1925,8 @@ limitations under the License.
             this.maxPF = -1;
             this.maxAllocBytes = -1;
             this.maxAllocObjects = -1;
+            this.maxThreadAlloc = -1;
+            this.maxThreadFree = -1;
         }
 
         render() {
@@ -1855,7 +1938,7 @@ limitations under the License.
         renderAxisBackground() {
             // let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
-            let subWindowHeight = canvasHeight / 5;
+            let subWindowHeight = canvasHeight / 7;
             let canvasWidth = this.canvas.width;
             console.log("width:" + canvasWidth);
 
@@ -1863,7 +1946,7 @@ limitations under the License.
             this.context.fillRect(0, 0, canvasWidth, canvasHeight);
             this.context.strokeStyle = THEME.AXIS_LINE_COLOR;
             this.context.lineWidth = THEME.AXIS_LINE_STROKE_WIDTH;
-            for (let i = 0; i < 6; i++) {
+            for (let i = 0; i < 8; i++) {
                 this.context.beginPath();
                 this.context.moveTo(0,i*subWindowHeight);
                 this.context.lineTo(canvasWidth,i * subWindowHeight);
@@ -1881,20 +1964,26 @@ limitations under the License.
             this.context.fillText(this.maxPF, canvasWidth, 2 * subWindowHeight);
             this.context.fillText(this.maxAllocBytes, canvasWidth, 3 * subWindowHeight);
             this.context.fillText(this.maxAllocObjects, canvasWidth, 4 * subWindowHeight);
+            this.context.fillText(this.maxThreadAlloc, canvasWidth, 5 * subWindowHeight);
+            this.context.fillText(this.maxThreadFree, canvasWidth, 6 * subWindowHeight);
             this.context.textBaseline="bottom";
             this.context.fillText("CPU", canvasWidth, subWindowHeight);
             this.context.fillText("Ctx", canvasWidth, 2 * subWindowHeight);
             this.context.fillText("Page", canvasWidth, 3 * subWindowHeight);
-            this.context.fillText("Mem Bytes", canvasWidth, 4 * subWindowHeight);
-            this.context.fillText("Mem Objects", canvasWidth, 5 * subWindowHeight);
+            this.context.fillText("Proc Bytes", canvasWidth, 4 * subWindowHeight);
+            this.context.fillText("Proc Obj", canvasWidth, 5 * subWindowHeight);
+            this.context.fillText("Thread Alloc", canvasWidth, 6 * subWindowHeight);
+            this.context.fillText("Thread Free", canvasWidth, 7 * subWindowHeight);
             this.context.restore();
         }
 
-        setMax(maxCtx, maxPF, maxAllocBytes, maxAllocObjects){
+        setMax(maxCtx, maxPF, maxAllocBytes, maxAllocObjects, maxThreadAlloc, maxThreadFree){
             this.maxCtx = maxCtx;
             this.maxPF = maxPF;
             this.maxAllocBytes = maxAllocBytes;
             this.maxAllocObjects = maxAllocObjects;
+            this.maxThreadAlloc = maxThreadAlloc;
+            this.maxThreadFree = maxThreadFree;
         }
     }
 
@@ -2005,7 +2094,8 @@ limitations under the License.
 
             let sampleData = new SampleData(sampleDataString);
             this.sampleRenderer.setData(sampleData);
-            this.sampleAxisRenderer.setMax(sampleData.maxCtxSwitch, sampleData.maxPF, sampleData.maxAllocBytes, sampleData.maxAllocObjects);
+            this.sampleAxisRenderer.setMax(sampleData.maxCtxSwitch, sampleData.maxPF,
+                sampleData.maxAllocBytes, sampleData.maxAllocObjects, sampleData.maxThreadAlloc, sampleData.maxThreadFree);
             this.sampleAxisRenderer.render();
         }
 
@@ -2025,6 +2115,7 @@ limitations under the License.
             if (traceDataString === "TRACE_DATA_PLACEHOLDER") {
                 return;
             }
+            // console.log(traceDataString);
             let traceDataBytes = new TextEncoder().encode(traceDataString);
             this._loadBytes(traceDataBytes)
         }
