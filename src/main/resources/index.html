@@ -558,6 +558,12 @@ limitations under the License.
             this.totalBytes = bytes.length;
             this.bytesRead = 0;
 
+            this.inRx = false;
+            this.RxCache = {};
+
+            this.RxTransits = [];
+            this.prev_rx_ts = -1;
+
             let it = bytes.values();
             this.next = () => {
                 this.bytesRead++;
@@ -617,11 +623,34 @@ limitations under the License.
             if (name === "POP") {
                 if (this.callStack.length > 0) {
                     this.pop();
+                    if(this.callStack.length > 0){
+                        let call = this.callStack[this.callStack.length - 1];
+                        let inRx = this.callInRx(call.name);
+                        if(this.inRx != inRx){
+                            this.RxTransits.push(new RxTransit(this.prev_rx_ts, this.timestamp, this.inRx));
+                            this.inRx = inRx;
+                            this.prev_rx_ts = this.timestamp;
+                        }
+                    } else {
+                        this.RxTransits.push(new RxTransit(this.prev_rx_ts, this.timestamp, this.inRx));
+                        this.inRx = -1;
+                        this.prev_rx_ts = -1;
+                    }
                 }
             } else {
                 let stackDepth = this.callStack.length + 1;
-                let call = new TraceCall(name, shortName, meta, stackDepth, this.timestamp);
-                // console.log(call);
+
+                let inRx = this.callInRx(name);
+                if(this.prev_rx_ts === -1){
+                    // first time enter
+                   this.inRx = inRx;
+                   this.prev_rx_ts = this.timestamp;
+                } else if(this.inRx != inRx){
+                    this.RxTransits.push(new RxTransit(this.prev_rx_ts, this.timestamp, this.inRx));
+                    this.inRx = inRx;
+                    this.prev_rx_ts = this.timestamp;
+                }
+                let call = new TraceCall(name, shortName, meta, stackDepth, this.timestamp, inRx);
                 this.callStack.push(call);
                 this.onPush(call);
             }
@@ -631,6 +660,19 @@ limitations under the License.
             let call = this.callStack.pop();
             call.end = this.timestamp;
             this.onPop(call);
+        }
+
+        callInRx(name) {
+            let inRx = undefined;
+            if(name in this.RxCache){
+                inRx = this.RxCache[name];
+            } else {
+                inRx = !name.includes("ClassLinker") && (name.includes("io.reactivex") );
+                this.RxCache[name] = inRx;
+            }
+
+            console.assert(inRx != undefined);
+            return inRx;
         }
 
         loadTimestamp() {
@@ -739,7 +781,7 @@ limitations under the License.
     // Represents a single invocation of a method.
     class TraceCall {
 
-        constructor(name, shortName, meta, stackDepth, start) {
+        constructor(name, shortName, meta, stackDepth, start, inRx) {
             this.name = name;
             this.shortName = shortName;
             this.meta = meta;
@@ -747,6 +789,7 @@ limitations under the License.
             this.start = start;
             this.end = null;
             this.method = null;
+            this.inRx = inRx;
         }
     }
 
@@ -1749,6 +1792,7 @@ limitations under the License.
                         // this.prev_state = new_state;
                     } else if (old_state != new_state) {
                         ts -= this.firstTimestamp;
+                        // merge states for the purpose of rendering
                         this.windowArray[old_state] += ts - this.tmp_prev_ts;
                         this.tmp_prev_ts = ts;
                         if(ts - this.prev_ts >= 1000000){
@@ -1770,6 +1814,14 @@ limitations under the License.
         }
     }
 
+    class RxTransit {
+        constructor(start_ts, end_ts, inRx) {
+            this.start_ts = start_ts;
+            this.end_ts = end_ts;
+            this.inRx = inRx;
+        }
+    }
+
     class StateRenderer {
 
         constructor(canvas, transform) {
@@ -1778,6 +1830,7 @@ limitations under the License.
             this.context = canvas.getContext("2d");
             this.stateData = new StateData("");
             this.textPool = new TextPool();
+            this.RxTransits = [];
         }
 
         setData(stateData) {
@@ -1785,9 +1838,14 @@ limitations under the License.
             this.render();
         }
 
+        setRxTransits(array){
+            this.RxTransits = array;
+        }
+
         render() {
             let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
+            let subWindowHeight = canvasHeight / 2;
 
             this.transform.applyTo(this.context);
             this.context.translate(0, -this.transform.getTranslationY() / this.transform.getScaleY());
@@ -1801,7 +1859,7 @@ limitations under the License.
                 // console.log(this.context.fillStyle);
                 let x = state.start_ts;
                 let width = state.end_ts - state.start_ts;
-                let height = canvasHeight;
+                let height = subWindowHeight;
                 let y = 0;
 
                 let scale = this.transform.getScaleX();
@@ -1816,6 +1874,7 @@ limitations under the License.
 
                 let cellScreenWidth = scale * width;
                 if (cellScreenWidth < 25) {
+                    // don't draw name is rectangle is too small
                     return;
                 }
                 let name = state.name;
@@ -1852,6 +1911,18 @@ limitations under the License.
                     0, 0, nameScreenWidth, nameModelHeight,
                     nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
                 this.context.restore();
+            });
+
+            this.RxTransits.forEach(transit => {
+                let x = transit.start_ts;
+                let width = transit.end_ts - transit.start_ts;
+                let height = subWindowHeight;
+                let y = subWindowHeight;
+
+                console.log(x, width, transit.inRx);
+
+                this.context.fillStyle = transit.inRx ? "blue" : "grey";
+                this.context.fillRect(x, y, width, height);
             });
         }
     }
@@ -2208,6 +2279,7 @@ limitations under the License.
                 this.detailsController.setMethodRegistry(methodRegistry);
                 this.canvasTraceRenderer.focusOnRegistry(methodRegistry);
                 this.canvasTraceRenderer.setMaxZoomOut(methodRegistry);
+                this.stateRenderer.setRxTransits(traceDataLoader.RxTransits);
                 this.loadingController.onDone();
                 this._refreshCanvas();
             };
