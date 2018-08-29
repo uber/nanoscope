@@ -558,11 +558,11 @@ limitations under the License.
             this.totalBytes = bytes.length;
             this.bytesRead = 0;
 
-            this.inRx = false;
             this.RxCache = {};
 
-            this.RxTransits = [];
             this.prev_rx_ts = -1;
+            this.inRxTime = 0;
+            this.outRxTime = 0;
 
             let it = bytes.values();
             this.next = () => {
@@ -619,23 +619,10 @@ limitations under the License.
             // if (this.firstTimestamp === -1) {
             //     this.firstTimestamp = this.timestamp;
             // }
-            this.timestamp -= this.firstTimestamp;
+            // this.timestamp -= this.firstTimestamp;
             if (name === "POP") {
                 if (this.callStack.length > 0) {
                     this.pop();
-                    if(this.callStack.length > 0){
-                        let call = this.callStack[this.callStack.length - 1];
-                        let inRx = this.callInRx(call.name);
-                        if(this.inRx != inRx){
-                            this.RxTransits.push(new RxTransit(this.prev_rx_ts, this.timestamp, this.inRx));
-                            this.inRx = inRx;
-                            this.prev_rx_ts = this.timestamp;
-                        }
-                    } else {
-                        this.RxTransits.push(new RxTransit(this.prev_rx_ts, this.timestamp, this.inRx));
-                        this.inRx = -1;
-                        this.prev_rx_ts = -1;
-                    }
                 }
             } else {
                 let stackDepth = this.callStack.length + 1;
@@ -643,14 +630,16 @@ limitations under the License.
                 let inRx = this.callInRx(name);
                 if(this.prev_rx_ts === -1){
                     // first time enter
-                   this.inRx = inRx;
                    this.prev_rx_ts = this.timestamp;
-                } else if(this.inRx != inRx){
-                    this.RxTransits.push(new RxTransit(this.prev_rx_ts, this.timestamp, this.inRx));
-                    this.inRx = inRx;
-                    this.prev_rx_ts = this.timestamp;
+                } else {
+                    if(this.callStack.length > 0){
+                        let prevCall = this.callStack[this.callStack.length - 1];
+                        if(prevCall.inRx)   this.inRxTime += this.timestamp - this.prev_rx_ts;
+                        else                this.outRxTime += this.timestamp - this.prev_rx_ts;
+                        this.prev_rx_ts = this.timestamp;
+                    }
                 }
-                let call = new TraceCall(name, shortName, meta, stackDepth, this.timestamp, inRx);
+                let call = new TraceCall(name, shortName, meta, stackDepth, this.timestamp, inRx, this.inRxTime, this.outRxTime);
                 this.callStack.push(call);
                 this.onPush(call);
             }
@@ -659,6 +648,16 @@ limitations under the License.
         pop() {
             let call = this.callStack.pop();
             call.end = this.timestamp;
+            let inRx = this.callInRx(call.name);
+            if(inRx)    this.inRxTime += this.timestamp - this.prev_rx_ts;
+            else        this.outRxTime += this.timestamp - this.prev_rx_ts;
+            call.updateRxRatio(this.inRxTime, this.outRxTime);
+
+            if(this.callStack.length > 0){
+                this.prev_rx_ts = this.timestamp;
+            } else {
+                this.prev_rx_ts = -1;
+            }
             this.onPop(call);
         }
 
@@ -667,7 +666,7 @@ limitations under the License.
             if(name in this.RxCache){
                 inRx = this.RxCache[name];
             } else {
-                inRx = !name.includes("ClassLinker") && (name.includes("io.reactivex") );
+                inRx = !name.includes("ClassLinker") && name.includes("io.reactivex");
                 this.RxCache[name] = inRx;
             }
 
@@ -781,7 +780,7 @@ limitations under the License.
     // Represents a single invocation of a method.
     class TraceCall {
 
-        constructor(name, shortName, meta, stackDepth, start, inRx) {
+        constructor(name, shortName, meta, stackDepth, start, inRx, inRxTime, outRxTime) {
             this.name = name;
             this.shortName = shortName;
             this.meta = meta;
@@ -790,6 +789,17 @@ limitations under the License.
             this.end = null;
             this.method = null;
             this.inRx = inRx;
+            this.RxRatio = 0;
+            this.inRxTime = inRxTime;
+            this.outRxTime = outRxTime;
+        }
+
+        updateRxRatio(inRxTime, outRxTime){
+            this.inRxTime = inRxTime - this.inRxTime;
+            this.outRxTime = outRxTime - this.outRxTime;
+            if((this.inRxTime + this.outRxTime) != 0){
+                this.RxRatio = this.inRxTime * 1.0 / (this.inRxTime + this.outRxTime);
+            }
         }
     }
 
@@ -1127,7 +1137,8 @@ limitations under the License.
             this.callStartEl.innerText = DetailsController._formatNs(call.start);
             this.callEndEl.innerText = DetailsController._formatNs(call.end);
             this.callInclusiveEl.innerText = `(${DetailsController._formatDuration(callDuration)})`;
-            this.callExclusiveEl.innerText = '<todo>';
+            this.callExclusiveEl.innerText = DetailsController._format(call.RxRatio * 100) + '%';
+            console.log(call.inRxTime, call.outRxTime, callDuration, call.RxRatio);
 
             let totalTraceDuration = this.methodRegistry.maxTimestamp - this.methodRegistry.minTimestamp;
             this.callPercentEl.innerHTML = DetailsController._format(100 * callDuration / totalTraceDuration) + '%';
@@ -1830,7 +1841,6 @@ limitations under the License.
             this.context = canvas.getContext("2d");
             this.stateData = new StateData("");
             this.textPool = new TextPool();
-            this.RxTransits = [];
         }
 
         setData(stateData) {
@@ -1838,14 +1848,9 @@ limitations under the License.
             this.render();
         }
 
-        setRxTransits(array){
-            this.RxTransits = array;
-        }
-
         render() {
             let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
-            let subWindowHeight = canvasHeight / 2;
 
             this.transform.applyTo(this.context);
             this.context.translate(0, -this.transform.getTranslationY() / this.transform.getScaleY());
@@ -1859,7 +1864,7 @@ limitations under the License.
                 // console.log(this.context.fillStyle);
                 let x = state.start_ts;
                 let width = state.end_ts - state.start_ts;
-                let height = subWindowHeight;
+                let height = canvasHeight;
                 let y = 0;
 
                 let scale = this.transform.getScaleX();
@@ -1913,17 +1918,6 @@ limitations under the License.
                 this.context.restore();
             });
 
-            this.RxTransits.forEach(transit => {
-                let x = transit.start_ts;
-                let width = transit.end_ts - transit.start_ts;
-                let height = subWindowHeight;
-                let y = subWindowHeight;
-
-                console.log(x, width, transit.inRx);
-
-                this.context.fillStyle = transit.inRx ? "blue" : "grey";
-                this.context.fillRect(x, y, width, height);
-            });
         }
     }
 
@@ -2279,7 +2273,6 @@ limitations under the License.
                 this.detailsController.setMethodRegistry(methodRegistry);
                 this.canvasTraceRenderer.focusOnRegistry(methodRegistry);
                 this.canvasTraceRenderer.setMaxZoomOut(methodRegistry);
-                this.stateRenderer.setRxTransits(traceDataLoader.RxTransits);
                 this.loadingController.onDone();
                 this._refreshCanvas();
             };
