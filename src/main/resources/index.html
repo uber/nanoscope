@@ -115,6 +115,22 @@ limitations under the License.
             max-width: 325px;
         }
 
+        .details-name .details-name-hover-text {
+            visibility: hidden;
+            background-color: black;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 5px 0;
+            position: absolute;
+            display: block;
+            z-index: 1;
+        }
+        
+        .details-name:hover .details-name-hover-text {
+            visibility: visible;
+        }
+        
         #inclusive {
             grid-column: 2;
             font-family: 'Roboto 12px', sans-serif;
@@ -343,7 +359,7 @@ limitations under the License.
         <canvas class="canvas" id="canvas"></canvas>
         <div class="details" id="details">
             <div class="details-header">
-                <div class="details-name">DisplayEventReceiver.dispatchVsync</div>
+                <div class="details-name">DisplayEventReceiver.dispatchVsync<span class="details-name-hover-text"></span></div>
                 <div id="inclusive">(98.234ms)</div>
                 <div class="details-focus"></div>
             </div>
@@ -1126,9 +1142,9 @@ limitations under the License.
                 // If the meta descriptor has a slash in it we take all the content after the slash.
                 let metaParts = call.meta.split('/');
                 let metaShort = metaParts[metaParts.length -1];
-                this.nameEl.innerHTML = call.shortName + "</br><i>" + metaShort + "</i>";
+                this.nameEl.innerHTML = call.shortName + "</br><i>" + metaShort + "</i>" + "<span class=\"details-name-hover-text\">" + call.shortName + "</br><i>" + metaShort + "</i>" + "</span></div>";
             } else {
-                this.nameEl.innerText = call.shortName;
+                this.nameEl.innerHTML = call.shortName + "<span class=\"details-name-hover-text\">" + call.name + "</span></div>";
             }
 
             this.el.style.display = 'inline';
