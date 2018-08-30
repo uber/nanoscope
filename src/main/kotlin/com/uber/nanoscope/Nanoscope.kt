@@ -320,9 +320,10 @@ class Nanoscope {
                     out.write("<")
                     out.write(htmlScanner.next())
                     out.write(">")
-                    traceFile.inputStream().bufferedReader().use { traceIn ->
-                        traceIn.copyTo(out)
-                    }
+                    // traceFile.inputStream().bufferedReader().use { traceIn ->
+                    //     traceIn.copyTo(out)
+                    // }
+                    out.write("TRACE_DATA_PLACEHOLDER")
                     out.write("<")
                     out.write(htmlScanner.next())
                     out.write(">")
