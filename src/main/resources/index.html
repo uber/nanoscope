@@ -1456,6 +1456,7 @@ limitations under the License.
             }
 
             if (call.textCanvas == null) {
+                // returns a (potentially) cached canvas with a given text rendered
                 call.textCanvas = this.textPool.getOrRasterize(call.shortName);
             }
 
@@ -1900,6 +1901,7 @@ limitations under the License.
                 }
                 let name = state.name;
                 if (state.textCanvas == null) {
+                    // returns a (potentially) cached canvas with a given text rendered
                     state.textCanvas = this.textPool.getOrRasterize(name);
                 }
 
@@ -1930,7 +1932,7 @@ limitations under the License.
                 this.context.drawImage(
                     state.textCanvas,
                     0, 0, nameScreenWidth, nameModelHeight,
-                    nameScreenPosition[0], nameScreenPosition[1], nameScreenWidth, nameModelHeight);
+                    nameScreenPosition[0], 0, nameScreenWidth, nameModelHeight);
                 this.context.restore();
             });
 
