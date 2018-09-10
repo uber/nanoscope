@@ -439,65 +439,54 @@ limitations under the License.
                 '#4D4D4D',
                 '#717171',
             ],
-        // 'COLOR_PALETTE_STATE':
-        //     [
-        //       '#970c2a',
-        //       '#1d6808',
-        //       '#12deb2',
-        //       '#c61093',
-        //       '#9e10c6',
-        //       '#0c9779',
-        //       '#4fc4f1',
-        //       '#61caf2',
-        //       '#73d0f4',
-        //       '#85d6f5',
-        //       '#98dcf7',
-        //       '#aae2f8',
-        //       '#bce8fa',
-        //       '#ceeefb',
-        //       '#e0f5fd',
-        //       '#f2fbfe',
-        //       '#3dbdf0',
-        //       '#2bb7ee',
-        //       '#18b1ed',
-        //       '#12a6e0',
-        //       '#1098ce',
-        //       '#0f8bbb',
-        //       '#97790c',
-        //       '#2a970c',
-        //       '#0c2a97',
-        //     ],
             "MARGIN_AROUND_METHODS_AT_START": 0.10,
             "SELECTED_CROSSHAIR_COLOR": "#FFFFFFDD",
-        // 'THREAD_STATE_NAME':
-        // [
-        //       'Terminated',
-        //       'Runnable',
-        //       'TimedWaiting',
-        //       'Sleeping',
-        //       'Blocked',
-        //       'Waiting',
-        //       'WaitingForGcToComplete',
-        //       'WaitingForCheckPointsToRun',
-        //       'WaitingPerformingGc',
-        //       'WaitingForDebuggerSend',
-        //       'WaitingForDebuggerToAttach',
-        //       'WaitingInMainDebuggerLoop',
-        //       'WaitingForDebuggerSuspension',
-        //       'WaitingForJniOnLoad',
-        //       'WaitingForSignalCatcherOutput',
-        //       'WaitingInMainSignalCatcherLoop',
-        //       'WaitingForDeoptimization',
-        //       'WaitingForMethodTracingStart',
-        //       'WaitingForVisitObjects',
-        //       'WaitingForGetObjectsAllocated',
-        //       'WaitingWeakGcRootRead',
-        //       'WaitingForGcThreadFlip',
-        //       'Starting',
-        //       'Native',
-        //       'Suspended',
-        // ],
     };
+
+// Merge VM Thread States into a more coarse grained states for better visualization
+// Correspondence is listed as following:
+// VM Thread State,                 Merged State,       Merged State Index in stateShortName
+// 'Terminated',                    Terminated,         0
+// 'Runnable',                      Runnable,           1
+// 'TimedWaiting',                  Object.wait(),      2
+// 'Sleeping',                      Sleeping,           3
+// 'Blocked',                       MonitorBlocked,     4
+// 'Waiting',                       Object.wait(),      2
+// 'WaitingForGcToComplete',        GCWait,             5
+// 'WaitingForCheckPointsToRun',    GCWait,             5
+// 'WaitingPerformingGc',           GCWait,             5
+// 'WaitingForDebuggerSend',        DebugWait,          6
+// 'WaitingForDebuggerToAttach',    DebugWait,          6
+// 'WaitingInMainDebuggerLoop',     DebugWait,          6
+// 'WaitingForDebuggerSuspension',  DebugWait,          6
+// 'WaitingForJniOnLoad',           JNILoadWait,        7
+// 'WaitingForSignalCatcherOutput', SignalWait,         8
+// 'WaitingInMainSignalCatcherLoop',SignalWait,         8
+// 'WaitingForDeoptimization',      DeoptWait,          9
+// 'WaitingForMethodTracingStart',  TraceWait,          10
+// 'WaitingForVisitObjects',        GCWait,             5
+// 'WaitingForGetObjectsAllocated', GCWait,             5
+// 'WaitingWeakGcRootRead',         GCWait,             5
+// 'WaitingForGcThreadFlip',        GCWait,             5
+// 'Starting',                      Starting,           11
+// 'Native',                        Native,             12
+// 'Suspended',                     Suspended,          13
+    var stateShortName = [
+                            "Terminated",
+                            "Runnable",
+                            "Object.wait()",
+                            "Sleeping",
+                            "MonitorBlocked",
+                            "GCWait",
+                            "DebugWait",
+                            "JNILoadWait",
+                            "SignalWait",
+                            "DeoptWait",
+                            "TraceWait",
+                            "Starting",
+                            "Native",
+                            "Suspended"
+                        ]
 
     var stateIdxArray = [
                             0,
@@ -527,29 +516,12 @@ limitations under the License.
                             13
                         ]
 
-    var stateShortName = [
-                            "Terminated",
-                            "Runnable",
-                            "Object.wait()",
-                            "Sleeping",
-                            "MonitorBlocked",
-                            "GCWait",
-                            "DebugWait",
-                            "JNILoadWait",
-                            "SignalWait",
-                            "DeoptWait",
-                            "TraceWait",
-                            "Starting",
-                            "Native",
-                            "Suspended"
-                        ]
 
     // Processes raw trace data bytes. Consume processed data by registering callbacks:
     //     onProgress(bytesRead), onDone(), onPush(call), onPop(call)
     class TraceDataProcessor {
 
         constructor(bytes) {
-            // console.log(bytes);
             this.charZero = '0'.charCodeAt(0);
             this.charColon = ':'.charCodeAt(0);
             this.charNewline = '\n'.charCodeAt(0);
@@ -567,17 +539,20 @@ limitations under the License.
             this.onPop = () => {
             };
             this.callStack = [];
-            // this.firstTimestamp = -1;
             this.firstTimestamp = 0;
             this.timestamp = -1;
             this.done = false;
             this.totalBytes = bytes.length;
             this.bytesRead = 0;
 
+            // Cache for determining if a call is a RxCall
             this.RxCache = {};
+            // Timestamp of last log entry processed, used in Rx Ration calculation
+            this.prevRxTimestamp = -1;
 
-            this.prev_rx_ts = -1;
+            // Counter of total time in Rx from start
             this.inRxTime = 0;
+            // Counter of total time out of Rx from start
             this.outRxTime = 0;
 
             let it = bytes.values();
@@ -623,7 +598,6 @@ limitations under the License.
 
         loadLine() {
             let loadedTimestamp = this.loadTimestamp();
-            // console.log(loadedTimestamp);
             if (this.done) {
                 return;
             }
@@ -632,10 +606,6 @@ limitations under the License.
             let name = namesAndMeta[0];
             let shortName = namesAndMeta[1];
             let meta = namesAndMeta[2];
-            // if (this.firstTimestamp === -1) {
-            //     this.firstTimestamp = this.timestamp;
-            // }
-            // this.timestamp -= this.firstTimestamp;
             if (name === "POP") {
                 if (this.callStack.length > 0) {
                     this.pop();
@@ -644,15 +614,14 @@ limitations under the License.
                 let stackDepth = this.callStack.length + 1;
 
                 let inRx = this.callInRx(name);
-                if(this.prev_rx_ts === -1){
-                    // first time enter
-                   this.prev_rx_ts = this.timestamp;
+                if(this.prevRxTimestamp === -1){
+                   this.prevRxTimestamp = this.timestamp;
                 } else {
                     if(this.callStack.length > 0){
                         let prevCall = this.callStack[this.callStack.length - 1];
-                        if(prevCall.inRx)   this.inRxTime += this.timestamp - this.prev_rx_ts;
-                        else                this.outRxTime += this.timestamp - this.prev_rx_ts;
-                        this.prev_rx_ts = this.timestamp;
+                        if(prevCall.inRx)   this.inRxTime += this.timestamp - this.prevRxTimestamp;
+                        else                this.outRxTime += this.timestamp - this.prevRxTimestamp;
+                        this.prevRxTimestamp = this.timestamp;
                     }
                 }
                 let call = new TraceCall(name, shortName, meta, stackDepth, this.timestamp, inRx, this.inRxTime, this.outRxTime);
@@ -665,14 +634,14 @@ limitations under the License.
             let call = this.callStack.pop();
             call.end = this.timestamp;
             let inRx = this.callInRx(call.name);
-            if(inRx)    this.inRxTime += this.timestamp - this.prev_rx_ts;
-            else        this.outRxTime += this.timestamp - this.prev_rx_ts;
+            if(inRx)    this.inRxTime += this.timestamp - this.prevRxTimestamp;
+            else        this.outRxTime += this.timestamp - this.prevRxTimestamp;
             call.updateRxRatio(this.inRxTime, this.outRxTime);
 
             if(this.callStack.length > 0){
-                this.prev_rx_ts = this.timestamp;
+                this.prevRxTimestamp = this.timestamp;
             } else {
-                this.prev_rx_ts = -1;
+                this.prevRxTimestamp = -1;
             }
             this.onPop(call);
         }
@@ -692,20 +661,17 @@ limitations under the License.
 
         loadTimestamp() {
             let next = this.next();
-            // console.log(next);
             if (next.done) {
                 this.done = true;
                 return;
             }
 
-            // console.log("loadTimestamp");
             let timestamp = 0;
             while (next.value !== this.charColon) {
                 timestamp *= 10;
                 timestamp += next.value - this.charZero;
                 next = this.next();
             }
-            // console.log(timestamp);
             return timestamp;
         }
 
@@ -1150,8 +1116,8 @@ limitations under the License.
             this.el.style.display = 'inline';
 
             let callDuration = call.end - call.start;
-            this.callStartEl.innerText = DetailsController._formatNs(call.start);
-            this.callEndEl.innerText = DetailsController._formatNs(call.end);
+            this.callStartEl.innerText = DetailsController._formatNs(call.start - this.methodRegistry.minTimestamp);
+            this.callEndEl.innerText = DetailsController._formatNs(call.end - this.methodRegistry.minTimestamp);
             this.callInclusiveEl.innerText = `(${DetailsController._formatDuration(callDuration)})`;
             this.callExclusiveEl.innerText = DetailsController._format(call.RxRatio * 100) + '%';
             console.log(call.inRxTime, call.outRxTime, callDuration, call.RxRatio);
@@ -1381,7 +1347,6 @@ limitations under the License.
 
         focusOnRegistry(methodRegistry) {
             let duration = methodRegistry.maxTimestamp - methodRegistry.minTimestamp;
-            // console.log(methodRegistry.maxTimestamp, methodRegistry.minTimestamp);
             this._focusWithMargin(methodRegistry.minTimestamp, 0, duration, THEME.MARGIN_AROUND_METHODS_AT_START);
         }
 
@@ -1581,7 +1546,6 @@ limitations under the License.
 
         constructor(string) {
             this.array = [];
-            // this.firstWallTime = -1;
             this.firstWallTime = 0;
             this.firstCpuTime = -1;
             this.firstMinPF = -1;
@@ -1595,7 +1559,7 @@ limitations under the License.
             this.maxThreadFree = -1;
             string.split("\n").forEach(s => {
                 let a = s.split(", ");
-                if (a.length >= 2) {
+                if (a.length >= 9) {
                     let wallTime = parseInt(a[0]);
                     let cpuTime = parseInt(a[1]);
                     let majPF = parseInt(a[2]);
@@ -1605,9 +1569,6 @@ limitations under the License.
                     let allocObjects = parseInt(a[6]);
                     let threadAlloc = parseInt(a[7]);
                     let threadFree = parseInt(a[8]);
-                    // if (this.firstWallTime === -1) {
-                    //     this.firstWallTime = wallTime;
-                    // }
                     if (this.firstCpuTime === -1) {
                         this.firstCpuTime = cpuTime;
                     }
@@ -1733,14 +1694,13 @@ limitations under the License.
                 let height = window.cpuUtilization * subWindowHeight;
                 let y = subWindowHeight - height;
                 this.context.fillRect(x, y, width, height);
-                // console.log("working " + x +"," + y +"," + width + "," + height);
 
-                // render ctx switch window now
+                // Render ctx switch window now
                 let height2 = window.ctxSwitch / this.sampleData.maxCtxSwitch * subWindowHeight;
                 let y2 = subWindowHeight + subWindowHeight - height2;
                 this.context.fillRect(x, y2, width, height2 );
 
-                //render maj and min page fault; major red, min green
+                // Render maj and min page fault; major red, min green
                 this.context.save();
                 this.context.fillStyle = "red";
                 let height3 = window.majPF / this.sampleData.maxPF * subWindowHeight;
@@ -1755,24 +1715,23 @@ limitations under the License.
                 this.context.fillRect(x, y4, width, height4);
                 this.context.restore();
 
-
+                // Render allocation bytes
                 this.context.fillStyle = "white";
-                // render allocation bytes
                 let height5 = window.allocBytes / this.sampleData.maxAllocBytes * subWindowHeight;
                 let y5 = 3 * subWindowHeight + subWindowHeight - height5;
                 this.context.fillRect(x, y5, width, height5 );
 
-                // render allocation objects
+                // Render allocation objects
                 let height6 = window.allocObjects / this.sampleData.maxAllocObjects * subWindowHeight;
                 let y6 = 4 * subWindowHeight + subWindowHeight - height6;
                 this.context.fillRect(x, y6, width, height6 );
 
-                // render thread allocation bytes
+                // Render thread allocation bytes
                 let height7 = window.threadAlloc / this.sampleData.maxThreadAlloc * subWindowHeight;
                 let y7 = 5 * subWindowHeight + subWindowHeight - height7;
                 this.context.fillRect(x, y7, width, height7 );
 
-                // render thread freed bytes
+                // Render thread freed bytes
                 let height8 = window.threadFree / this.sampleData.maxThreadFree * subWindowHeight;
                 let y8 = 6 * subWindowHeight + subWindowHeight - height8;
                 this.context.fillRect(x, y8, width, height8 );
@@ -1781,7 +1740,6 @@ limitations under the License.
 
         _refreshWindows() {
             this.windows = this.sampleData.windows(this.windowSize);
-            // console.log(this.windows);
         }
     }
 
@@ -1791,7 +1749,6 @@ limitations under the License.
             this.end_ts = end_ts;
             this.state = state;
             this.name = stateShortName[this.state];
-            // console.log(start_ts, end_ts, state, this.name);
         }
     }
 
@@ -1799,31 +1756,27 @@ limitations under the License.
 
         constructor(string) {
             this.array = [];
-            // this.firstTimestamp = -1;
             this.firstTimestamp = 0;
-            this.prev_ts = -1;
-            this.tmp_prev_ts = -1;
+            this.prevTimestamp = -1;
+            this.tmpPrevTimeStamp = -1;
             this.windowArray = Array(14).fill(0);
-            // this.prev_state = -1;
             string.split("\n").forEach(s => {
                 let a = s.split(", ");
                 if (a.length >= 2) {
                     let ts = parseInt(a[0]);
+                    // Convert VM thread state to more coarsed grained state;
+                    // VM thread state starts at 66
                     let old_state = stateIdxArray[parseInt(a[1]) - 66];
                     let new_state = stateIdxArray[parseInt(a[2]) - 66];
-                    // console.log(old_state, new_state);
-                    if(this.prev_ts === -1){
-                        // this.firstTimestamp = ts;
-                        // this.prev_ts = 0;
-                        this.prev_ts = ts;
-                        this.tmp_prev_ts = ts;
-                        // this.prev_state = new_state;
+                    if(this.prevTimestamp === -1){
+                        this.prevTimestamp = ts;
+                        this.tmpPrevTimeStamp = ts;
                     } else if (old_state != new_state) {
                         ts -= this.firstTimestamp;
-                        // merge states for the purpose of rendering
-                        this.windowArray[old_state] += ts - this.tmp_prev_ts;
-                        this.tmp_prev_ts = ts;
-                        if(ts - this.prev_ts >= 1000000){
+                        // Merge states for the purpose of rendering
+                        this.windowArray[old_state] += ts - this.tmpPrevTimeStamp;
+                        this.tmpPrevTimeStamp = ts;
+                        if(ts - this.prevTimestamp >= 1000000){
                             var maxIdx = 0;
                             var max = 0;
                             for(let i = 0; i < 14; i++){
@@ -1833,20 +1786,12 @@ limitations under the License.
                                 }
                                 this.windowArray[i] = 0;
                             }
-                            this.array.push(new State(this.prev_ts, ts, maxIdx));
-                            this.prev_ts = ts;
+                            this.array.push(new State(this.prevTimestamp, ts, maxIdx));
+                            this.prevTimestamp = ts;
                         }
                     }
                 }
             })
-        }
-    }
-
-    class RxTransit {
-        constructor(start_ts, end_ts, inRx) {
-            this.start_ts = start_ts;
-            this.end_ts = end_ts;
-            this.inRx = inRx;
         }
     }
 
@@ -1877,8 +1822,6 @@ limitations under the License.
 
             this.stateData.array.forEach(state => {
                 this.context.fillStyle = THEME.COLOR_PALETTE[state.state];
-                // this.context.fillStyle = intToRGB(hashCode(THEME.THREAD_STATE_NAME[state.state - 66]));
-                // console.log(this.context.fillStyle);
                 let x = state.start_ts;
                 let width = state.end_ts - state.start_ts;
                 let height = canvasHeight;
@@ -1886,17 +1829,11 @@ limitations under the License.
 
                 let scale = this.transform.getScaleX();
 
-                // console.log(x +"," + y +"," + width + "," + height);
-                // console.log(state);
-                // console.log(x, x+width, state.state);
                 this.context.fillRect(x, y, width, height);
-                // if(width < 1000000){
-                //     console.log(x, x + width, width, state.name);
-                // }
 
                 let cellScreenWidth = scale * width;
                 if (cellScreenWidth < 25) {
-                    // don't draw name is rectangle is too small
+                    // Don't draw name is rectangle is too small
                     return;
                 }
                 let name = state.name;
@@ -1919,7 +1856,6 @@ limitations under the License.
                 nameModelRight = Math.min(x + width, nameModelRight);
                 nameModelLeft = nameModelRight - nameModelWidth;
 
-                // let nameModelLeft = this.left;
                 // noinspection UnnecessaryLocalVariableJS
                 let nameModelTop = 0;
 
@@ -1927,6 +1863,7 @@ limitations under the License.
                 let nameScreenPosition = this.transform.toScreenPosition(nameModelPosition);
                 let nameScreenWidth = nameModelWidth * scale;
 
+                // TODO: Fix scrolling issue
                 this.context.save();
                 this.context.setTransform(1, 0, 0, 1, 0, 0);
                 this.context.drawImage(
@@ -1934,6 +1871,7 @@ limitations under the License.
                     0, 0, nameScreenWidth, nameModelHeight,
                     nameScreenPosition[0], 0, nameScreenWidth, nameModelHeight);
                 this.context.restore();
+
             });
 
         }
@@ -1945,6 +1883,11 @@ limitations under the License.
             this.canvas = canvas;
             this.transform = transform;
             this.context = canvas.getContext("2d");
+            this.minTimestamp = 0;
+        }
+
+        setMethodRegistry(methodRegistry){
+            this.minTimestamp = methodRegistry.minTimestamp;
         }
 
         render() {
@@ -1992,7 +1935,7 @@ limitations under the License.
                 this.context.translate(majorDivision * divisionSize, THEME.AXIS_HEIGHT / 2);
                 this.context.scale(1 / this.transform.getScaleX(), 1);
                 this.context.font = '20px Roboto';
-                this.context.fillText("  " + AxisRenderer.formatTime(majorDivision * divisionSize, divisionSize), 0, 0);
+                this.context.fillText("  " + AxisRenderer.formatTime(majorDivision * divisionSize - this.minTimestamp, divisionSize), 0, 0);
                 this.context.restore();
             }
 
@@ -2015,7 +1958,7 @@ limitations under the License.
 
         static formatTime(time, divisionSize) {
             // TODO: this needs to be improved. For now we just show everything in ns.
-            return Math.round(time) + " ns"
+            return Math.round(time)  + " ns"
         }
     }
 
@@ -2040,7 +1983,6 @@ limitations under the License.
         }
 
         renderAxisBackground() {
-            // let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
             let subWindowHeight = canvasHeight / 7;
             let canvasWidth = this.canvas.width;
@@ -2060,7 +2002,6 @@ limitations under the License.
             this.context.fillStyle = THEME.AXIS_LINE_COLOR;
             this.context.font = '20px Roboto';
             this.context.save();
-            // this.context.scale(1/2, 1);
             this.context.textBaseline="hanging";
             this.context.textAlign = "right";
             this.context.fillText("100%", canvasWidth, 0);
@@ -2219,7 +2160,6 @@ limitations under the License.
             if (traceDataString === "TRACE_DATA_PLACEHOLDER") {
                 return;
             }
-            // console.log(traceDataString);
             let traceDataBytes = new TextEncoder().encode(traceDataString);
             this._loadBytes(traceDataBytes)
         }
@@ -2289,6 +2229,7 @@ limitations under the License.
                 this.searchController.setMethodRegistry(methodRegistry);
                 this.minimapRenderer.setMethodRegistry(methodRegistry);
                 this.detailsController.setMethodRegistry(methodRegistry);
+                this.axisRenderer.setMethodRegistry(methodRegistry);
                 this.canvasTraceRenderer.focusOnRegistry(methodRegistry);
                 this.canvasTraceRenderer.setMaxZoomOut(methodRegistry);
                 this.loadingController.onDone();
