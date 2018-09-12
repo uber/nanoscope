@@ -352,9 +352,9 @@ limitations under the License.
         <canvas class="axisCanvas" id="axisCanvas"></canvas>
         <div class="title">Nanoscope</div>
     </div>
-    <canvas class="sampleAxisCanvas" id="sampleAxisCanvas"></canvas>
-    <canvas class="sampleCanvas" id="sampleCanvas"></canvas>
-    <canvas class="stateCanvas" id="stateCanvas"></canvas>
+    <canvas class="sampleAxisCanvas" id="sampleAxisCanvas" ></canvas>
+    <canvas class="sampleCanvas" id="sampleCanvas" ></canvas>
+    <canvas class="stateCanvas" id="stateCanvas" ></canvas>
     <div class="content">
         <canvas class="canvas" id="canvas"></canvas>
         <div class="details" id="details">
@@ -1863,7 +1863,6 @@ limitations under the License.
                 let nameScreenPosition = this.transform.toScreenPosition(nameModelPosition);
                 let nameScreenWidth = nameModelWidth * scale;
 
-                // TODO: Fix scrolling issue
                 this.context.save();
                 this.context.setTransform(1, 0, 0, 1, 0, 0);
                 this.context.drawImage(
@@ -1977,8 +1976,7 @@ limitations under the License.
         }
 
         render() {
-            this.transform.applyTo(this.context);
-            this.context.translate(-this.transform.getTranslationX() / this.transform.getScaleX(), -this.transform.getTranslationY() / this.transform.getScaleY());
+            this.context.setTransform(1, 0, 0, 1, 0, 0);
             this.renderAxisBackground();
         }
 
@@ -1986,7 +1984,6 @@ limitations under the License.
             let canvasHeight = this.canvas.height;
             let subWindowHeight = canvasHeight / 7;
             let canvasWidth = this.canvas.width;
-            console.log("width:" + canvasWidth);
 
             this.context.fillStyle = THEME.AXIS_BACKGROUND_COLOR;
             this.context.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -1997,6 +1994,7 @@ limitations under the License.
                 this.context.moveTo(0,i*subWindowHeight);
                 this.context.lineTo(canvasWidth,i * subWindowHeight);
                 this.context.stroke();
+                this.context.closePath();
             }
 
             this.context.fillStyle = THEME.AXIS_LINE_COLOR;
@@ -2103,6 +2101,8 @@ limitations under the License.
             let axisCanvas = document.getElementById('axisCanvas');
             let sampleCanvas = document.getElementById('sampleCanvas');
             let minimapCanvas = document.getElementById('minimapCanvas');
+            let sampleAxisCanvas = document.getElementById('sampleAxisCanvas');
+            let stateCanvas = document.getElementById('stateCanvas');
             this.transform = new Transform();
             this.loadingController = new LoadingController();
             this.searchController = new SearchController();
@@ -2133,7 +2133,11 @@ limitations under the License.
 
         loadSampleData() {
             let sampleDataString = document.getElementById("sampledata").innerText;
-            if (sampleDataString === "TRACE_SAMPLE_PLACEHOLDER") {
+            if (sampleDataString === "TRACE_DATA_PLACEHOLDER") {
+                var sampleAxisCanvas = document.getElementById("sampleAxisCanvas");
+                var sampleCanvas = document.getElementById("sampleCanvas");
+                sampleAxisCanvas.style.display = "none";
+                sampleCanvas.style.display = "none";
                 return;
             }
 
@@ -2146,7 +2150,9 @@ limitations under the License.
 
         loadStateData() {
             let stateDataString = document.getElementById("statedata").innerText;
-            if (stateDataString === "TRACE_SAMPLE_PLACEHOLDER") {
+            if (stateDataString === "TRACE_DATA_PLACEHOLDER") {
+                var stateCanvas = document.getElementById("stateCanvas");
+                stateCanvas.style.display = "none";
                 return;
             }
 
@@ -2234,6 +2240,7 @@ limitations under the License.
                 this.canvasTraceRenderer.setMaxZoomOut(methodRegistry);
                 this.loadingController.onDone();
                 this._refreshCanvas();
+                resizeCanvas();
             };
             this.loadingController.onStart(bytes.length);
             traceDataLoader.load();

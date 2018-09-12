@@ -313,7 +313,7 @@ class Nanoscope {
                 val htmlScanner = Scanner(htmlIn).useDelimiter(">TRACE_DATA_PLACEHOLDER<")
                 File(htmlPath).outputStream().bufferedWriter().use { out ->
                     out.write(htmlScanner.next())
-                    if(sampleFile.exists()){
+                    if(sampleFile.exists() && sampleFile.length() != 0L){
                         out.write(">")
                         sampleFile.inputStream().bufferedReader().use { sampleIn ->
                             sampleIn.copyTo(out)
@@ -329,7 +329,7 @@ class Nanoscope {
                     }
                     out.write("<")
                     out.write(htmlScanner.next())
-                    if(stateFile.exists()){
+                    if(stateFile.exists() && stateFile.length() != 0L){
                         out.write(">")
                         stateFile.inputStream().bufferedReader().use { stateIn ->
                             stateIn.copyTo(out)
