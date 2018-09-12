@@ -305,7 +305,7 @@ class Nanoscope {
             Runtime.getRuntime().exec("open $htmlPath")
         }
 
-        private fun displayTraceWithSample(traceFile: File, sampleFile: File, stateFile:File) {
+        private fun displayTraceWithSample(traceFile: File, sampleFile: File?, stateFile: File?) {
             val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
             println("Building HTML... ($htmlPath)")
 
@@ -313,30 +313,30 @@ class Nanoscope {
                 val htmlScanner = Scanner(htmlIn).useDelimiter(">TRACE_DATA_PLACEHOLDER<")
                 File(htmlPath).outputStream().bufferedWriter().use { out ->
                     out.write(htmlScanner.next())
-                    if(sampleFile.exists() && sampleFile.length() != 0L){
-                        out.write(">")
-                        sampleFile.inputStream().bufferedReader().use { sampleIn ->
-                            sampleIn.copyTo(out)
-                        }
-                        out.write("<")
-                    } else {
-                        out.write(">TRACE_DATA_PLACEHOLDER<")
-                    }
-                    out.write(htmlScanner.next())
                     out.write(">")
                     traceFile.inputStream().bufferedReader().use { traceIn ->
                         traceIn.copyTo(out)
                     }
                     out.write("<")
-                    out.write(htmlScanner.next())
-                    if(stateFile.exists() && stateFile.length() != 0L){
+                    htmlScanner.skip(">TRACE_DATA_PLACEHOLDER<")
+                    if (sampleFile != null && sampleFile.exists() && sampleFile.length() != 0L) {
+                        htmlScanner.useDelimiter(">SAMPLE_DATA_PLACEHOLDER<")
+                        out.write(htmlScanner.next())
+                        out.write(">")
+                        sampleFile.inputStream().bufferedReader().use { sampleIn ->
+                            sampleIn.copyTo(out)
+                        }
+                        out.write("<")
+                        htmlScanner.skip(">SAMPLE_DATA_PLACEHOLDER<")
+                    }
+                    if (stateFile != null && stateFile.exists() && stateFile.length() != 0L) {
+                        htmlScanner.useDelimiter(">STATE_DATA_PLACEHOLDER<")
+                        out.write(htmlScanner.next())
                         out.write(">")
                         stateFile.inputStream().bufferedReader().use { stateIn ->
                             stateIn.copyTo(out)
                         }
                         out.write("<")
-                    } else {
-                        out.write(">TRACE_DATA_PLACEHOLDER<")
                     }
                     out.write(htmlScanner.next())
                 }

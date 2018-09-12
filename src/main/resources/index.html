@@ -389,9 +389,9 @@ limitations under the License.
         </div>
     </div>
 </div>
-<script type="text/plain" id="sampledata">TRACE_DATA_PLACEHOLDER</script>
 <script type="text/plain" id="tracedata">TRACE_DATA_PLACEHOLDER</script>
-<script type="text/plain" id="statedata">TRACE_DATA_PLACEHOLDER</script>
+<script type="text/plain" id="sampledata">SAMPLE_DATA_PLACEHOLDER</script>
+<script type="text/plain" id="statedata">STATE_DATA_PLACEHOLDER</script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.4.0/gl-matrix-min.js"></script>
 
 <script type="text/javascript">
@@ -1677,6 +1677,7 @@ limitations under the License.
         }
 
         render() {
+            // console.log(this.windows);
             let viewport = this.transform.getViewport();
             let canvasHeight = this.canvas.height;
             let subWindowHeight = canvasHeight / 7;
@@ -2133,7 +2134,7 @@ limitations under the License.
 
         loadSampleData() {
             let sampleDataString = document.getElementById("sampledata").innerText;
-            if (sampleDataString === "TRACE_DATA_PLACEHOLDER") {
+            if (sampleDataString === "SAMPLE_DATA_PLACEHOLDER") {
                 var sampleAxisCanvas = document.getElementById("sampleAxisCanvas");
                 var sampleCanvas = document.getElementById("sampleCanvas");
                 sampleAxisCanvas.style.display = "none";
@@ -2150,7 +2151,7 @@ limitations under the License.
 
         loadStateData() {
             let stateDataString = document.getElementById("statedata").innerText;
-            if (stateDataString === "TRACE_DATA_PLACEHOLDER") {
+            if (stateDataString === "STATE_DATA_PLACEHOLDER") {
                 var stateCanvas = document.getElementById("stateCanvas");
                 stateCanvas.style.display = "none";
                 return;
