@@ -208,8 +208,9 @@ class FlashHandler(private val args: List<String>): ConfirmationHandler() {
 class OpenHandler(private val args: List<String>): Runnable {
 
     override fun run() {
+        val usage = "usage: nanoscope open <tracefile> [--sample-data=example.txt] [--state-data=example2.txt]"
         if (args.isEmpty()) {
-            println("usage: nanoscope open <tracefile>")
+            println(usage);
             exitProcess(1)
         }
 
@@ -219,8 +220,34 @@ class OpenHandler(private val args: List<String>): Runnable {
             exitProcess(1)
         }
 
-        val sampleFile = File(args[0] + ".timer")
-        val stateFile = File(args[0] + ".state")
+        var sampleFile = File(args[0] + ".timer")
+        var stateFile = File(args[0] + ".state")
+        for ((index, arg) in args.withIndex()){
+            if(index != 0){
+                val parts = arg.split('=')
+                if (parts.size != 2) {
+                    println(usage)
+                    exitProcess(1)
+                }
+
+                if (parts[0] == "--sample-data") {
+                    sampleFile = File(parts[1]);
+                    if (!sampleFile.exists()) {
+                        println("File does not exist: $sampleFile")
+                        exitProcess(1)
+                    }
+                } else if (parts[0] == "--state-data"){
+                    stateFile = File(parts[1]);
+                    if (!stateFile.exists()) {
+                        println("File does not exist: $stateFile")
+                        exitProcess(1)
+                    }
+                } else {
+                    println(usage)
+                    exitProcess(1)
+                }
+            }
+        }
 
         Nanoscope.openTrace(inFile, sampleFile, stateFile)
     }

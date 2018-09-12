@@ -99,7 +99,7 @@ class Nanoscope {
             println("\rPulling trace file... ($localPath)")
             Adb.pullFile(remotePath, localPath)
 
-            displayTrace(localFile)
+            displayTrace(localFile, null, null)
         }
     }
 
@@ -164,7 +164,7 @@ class Nanoscope {
                 }
             }
 
-            displayTraceWithSample(nanotraceFile, sampleFile, stateFile)
+            displayTrace(nanotraceFile, sampleFile, stateFile)
         }
 
         fun startTracing(packageName: String?): Trace {
@@ -284,28 +284,7 @@ class Nanoscope {
             }
         }
 
-        private fun displayTrace(traceFile: File) {
-            val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
-            println("Building HTML... ($htmlPath)")
-
-            this::class.java.classLoader.getResourceAsStream("index.html").buffered().use { htmlIn ->
-                val htmlScanner = Scanner(htmlIn).useDelimiter(">TRACE_DATA_PLACEHOLDER<")
-                File(htmlPath).outputStream().bufferedWriter().use { out ->
-                    out.write(htmlScanner.next())
-                    out.write(">")
-                    traceFile.inputStream().bufferedReader().use { traceIn ->
-                        traceIn.copyTo(out)
-                    }
-                    out.write("<")
-                    out.write(htmlScanner.next())
-                }
-            }
-
-            println("Opening HTML...")
-            Runtime.getRuntime().exec("open $htmlPath")
-        }
-
-        private fun displayTraceWithSample(traceFile: File, sampleFile: File?, stateFile: File?) {
+        private fun displayTrace(traceFile: File, sampleFile: File?, stateFile: File?) {
             val htmlPath = File.createTempFile("nanoscope", ".html").absolutePath
             println("Building HTML... ($htmlPath)")
 
