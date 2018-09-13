@@ -1120,7 +1120,7 @@ limitations under the License.
             this.callEndEl.innerText = DetailsController._formatNs(call.end - this.methodRegistry.minTimestamp);
             this.callInclusiveEl.innerText = `(${DetailsController._formatDuration(callDuration)})`;
             this.callExclusiveEl.innerText = DetailsController._format(call.RxRatio * 100) + '%';
-            console.log(call.inRxTime, call.outRxTime, callDuration, call.RxRatio);
+            // console.log(call.inRxTime, call.outRxTime, callDuration, call.RxRatio);
 
             let totalTraceDuration = this.methodRegistry.maxTimestamp - this.methodRegistry.minTimestamp;
             this.callPercentEl.innerHTML = DetailsController._format(100 * callDuration / totalTraceDuration) + '%';
@@ -2242,6 +2242,7 @@ limitations under the License.
                 this.loadingController.onDone();
                 this._refreshCanvas();
                 resizeCanvas();
+                console.log(traceDataLoader.inRxTime, traceDataLoader.outRxTime);
             };
             this.loadingController.onStart(bytes.length);
             traceDataLoader.load();
