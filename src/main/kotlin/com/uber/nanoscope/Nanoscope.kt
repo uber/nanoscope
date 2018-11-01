@@ -75,10 +75,15 @@ class Nanoscope {
 
     class Trace(
             private val packageName: String,
+            private val extOption: String?,
             private val filename: String) {
 
         init {
-            Adb.setSystemProperty("dev.nanoscope", "$packageName:$filename")
+            if (extOption == null) {
+               Adb.setSystemProperty("dev.nanoscope", "$packageName:$filename")
+           } else {
+               Adb.setSystemProperty("dev.nanoscope", "$packageName:$filename:$extOption")
+           }           
         }
 
         fun stop() {
@@ -99,7 +104,26 @@ class Nanoscope {
             println("\rPulling trace file... ($localPath)")
             Adb.pullFile(remotePath, localPath)
 
-            displayTrace(localFile, null, null)
+            if (extOption == null) {
+               displayTrace(localFile, null, null)
+            } else {
+              // no need to wait for timer and state files to appear as they will
+              // be present at the same time as the main trace file
+              
+              val remotePathSample = "/data/data/$packageName/files/$filename.timer"
+              val remotePathState = "/data/data/$packageName/files/$filename.state"
+              val localPathSample = localPath + ".timer"
+              val localPathState = localPath + ".state"
+              val localFileSample = File(localPathSample);
+              val localFileState = File(localPathState);
+
+              println("\rPulling timer file... ($localPathSample)")
+              Adb.pullFile(remotePathSample, localPathSample)
+
+              println("\rPulling state file... ($localPathState)")
+              Adb.pullFile(remotePathState, localPathState)              
+              displayTrace(localFile, localFileSample, localFileState)
+            }
         }
     }
 
@@ -167,11 +191,11 @@ class Nanoscope {
             displayTrace(nanotraceFile, sampleFile, stateFile)
         }
 
-        fun startTracing(packageName: String?): Trace {
+        fun startTracing(packageName: String?, extOptions: String?): Trace {
             Adb.root()
             val filename = "out.txt"
             val tracedPackage = packageName ?: Adb.getForegroundPackage()
-            return Trace(tracedPackage, filename)
+            return Trace(tracedPackage, extOptions, filename)
         }
 
         fun launchEmulator(emulatorUrl: String) {

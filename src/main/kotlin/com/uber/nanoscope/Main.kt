@@ -132,9 +132,13 @@ abstract class ConfirmationHandler: Runnable {
  */
 class StartHandler(private val args: List<String>): VersionedHandler() {
 
+    val usage = "usage: nanoscope start [--package=com.example] [--ext[=perf_timer|=cpu_timer]]"
+    val max_params = 2;
+
     override fun doRun() {
-        val trace = Nanoscope.startTracing(getPackageName())
-        println("Tracing... (Press ENTER to stop)")
+        val extOption = getExtOption();
+        val trace = Nanoscope.startTracing(getPackageName(), extOption)
+        println("Tracing" + if (extOption == null) { "" } else { " with " + extOption } + " ... (Press ENTER to stop)")
         while (true) {
             if (System.`in`.read() == 10) {
                 break
@@ -143,30 +147,61 @@ class StartHandler(private val args: List<String>): VersionedHandler() {
         trace.stop()
     }
 
-    private fun getPackageName(): String? {
+    private fun validParams(): Boolean {
         if (args.isEmpty()) {
+            return false
+        }
+
+        if (args.size > max_params) {
+            println(usage)
+            exitProcess(1)
+        }
+        
+        return true;
+    }
+
+    private fun getPackageName(): String? {
+        if (!validParams()) {
             return null
         }
 
-        val usage = "usage: nanoscope start [--package=com.example]"
-        if (args.size != 1) {
-            println(usage)
-            exitProcess(1)
-        }
+        for (i in 0..args.size-1) {
+            val parts = args[i].split('=')
+            if (parts.size == 2 && parts[0] == "--package") {
+               return parts[1]
+            } // else continue
 
-        val parts = args[0].split('=')
-        if (parts.size != 2) {
-            println(usage)
-            exitProcess(1)
         }
-
-        if (parts[0] != "--package") {
-            println(usage)
-            exitProcess(1)
-        }
-
-        return parts[1]
+        return null;
     }
+
+    private fun getExtOption(): String? {
+        if (!validParams()) {
+            return null
+        }
+
+        for (i in 0..args.size-1) {
+            if (args[i] == "--ext") {
+               return "perf_timer";
+            } else {
+              val parts = args[i].split('=')
+              if (parts.size != 2) {
+                  continue;
+              }
+
+              if (parts[0] == "--ext") {
+                if (parts[1] != "perf_timer" && parts[1] != "cpu_timer") {
+                   println(usage)
+                   exitProcess(1)
+                } else {
+                  return parts[1]
+                }
+              } // else continue
+           }
+        }
+        return null;
+    }
+
 }
 
 /**
