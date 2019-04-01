@@ -20,7 +20,7 @@ import java.io.File
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 
-val ROM_VERSION = Version(0, 2, 2)
+val ROM_VERSION = Version(0, 2, 3)
 val EMULATOR_URL = "https://github.com/uber/nanoscope-art/releases/download/$ROM_VERSION/nanoscope-emulator-$ROM_VERSION.zip"
 val ROM_URL = "https://github.com/uber/nanoscope-art/releases/download/$ROM_VERSION/nanoscope-rom-$ROM_VERSION.zip"
 val FLASH_WARNING_MESSAGE = """ |
