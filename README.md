@@ -64,6 +64,25 @@ $ nanoscope start --package=com.example.app
 Tracing... (Press ENTER to stop)
 ```
 
+In addition to method tracing, Nanoscope can generate additional
+information about executing application (e.g. CPU utilization for a
+given thread, number of page faults, object allocation
+information). You can enable this additional functionality by using
+`--ext` parameter with `nanoscope start` command. It is also necessary
+to change the kernel setting of Nexus 6P as follows:
+
+```bash
+$ adb shell "echo -1 >/proc/sys/kernel/perf_event_paranoid"
+```
+
+Please note that extended functionality DOES NOT work on emulators
+(and is therefore not included in our emulator release). Additional
+information about this Nanoscope extension can be found
+[here](https://github.com/uber/nanoscope/wiki/Trace-Extensions).
+
+
+
+
 ## Upgrade
 
 **Client**
