@@ -58,12 +58,14 @@ $ nanoscope start
 Tracing... (Press ENTER to stop)
 ```
 
-**Trace a specific app**
+**Startup tracing**
 ```bash
 $ nanoscope start --package=com.example.app
 Tracing... (Press ENTER to stop)
 ```
+It's necessary to specify the applicationn package if you want to start tracing before running the app.
 
+**Extensions**
 In addition to method tracing, Nanoscope can generate additional
 information about executing application (e.g. CPU utilization for a
 given thread, number of page faults, object allocation
