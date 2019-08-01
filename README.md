@@ -63,7 +63,7 @@ Tracing... (Press ENTER to stop)
 $ nanoscope start --package=com.example.app
 Tracing... (Press ENTER to stop)
 ```
-It's necessary to specify the applicationn package if you want to start tracing before running the app.
+It's necessary to specify the application package if you want to start tracing before running the app.
 
 **Extensions**
 
